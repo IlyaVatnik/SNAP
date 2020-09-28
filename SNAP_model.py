@@ -1,4 +1,10 @@
 '''
+Created on Fri Sep 25 
+
+@author: Ilya Vatnik
+
+v.1
+
 After papers 
 1. Sumetsky, M. Theory of SNAP devices: basic equations and comparison with the experiment. Opt. Express 20, 22537 (2012).
 2. Vitullo, D. L. P., Zaki, S., Jones, D. E., Sumetsky, M. & Brodsky, M. Coupling between waveguides and microresonators: the local approach. Opt. Express 28, 25908 (2020).
@@ -42,6 +48,8 @@ class SNAP():
         self.taper_Csquared=taper_Csquared
         self.taper_ReD=taper_ReD
         self.taper_ImD_exc=taper_ImD_exc
+        
+        self.Cmap='jet'
         
         
     def set_fiberParams(self,res_width=None,R_0=None,n=None):
@@ -149,10 +157,11 @@ class SNAP():
     
     def plot_spectrum(self,x):
         w,l=self.get_spectrum(x)
-        plt.figure(3)
+        fig=plt.figure(3)
         plt.plot(w,l)
         plt.xlabel('Wavelength,nm')
         plt.ylabel('Transmission')
+        return fig
     
     def plot_spectrogram(self):
         wave_max=max(self.lambdas)
@@ -166,30 +175,32 @@ class SNAP():
             ax_Radius.set_ylim(nY1, nY2)
         if self.needToUpdateTransmission:
             self.derive_transmission()
-        fig2=plt.figure(1)
+        fig=plt.figure(1)
         plt.clf()
-        ax_Wavelengths = fig2.subplots()
+        ax_Wavelengths = fig.subplots()
         ax_Radius = ax_Wavelengths.twinx()
         ax_Wavelengths.callbacks.connect("ylim_changed", _convert_ax_Wavelength_to_Radius)
         try:
-            im = ax_Wavelengths.pcolorfast(self.x,self.lambdas,self.Transmission)
+            im = ax_Wavelengths.pcolorfast(self.x,self.lambdas,self.Transmission,cmap=self.Cmap)
         except:
-            im = ax_Wavelengths.pcolor(self.x,self.lambdas,self.Transmission)
+            im = ax_Wavelengths.pcolor(self.x,self.lambdas,self.Transmission, cmap=self.Cmap)
         plt.colorbar(im,ax=ax_Radius,pad=0.12)
         ax_Wavelengths.set_xlabel(r'Position, $\mu$m')
         ax_Wavelengths.set_ylabel('Wavelength, nm')
         ax_Radius.set_ylabel('Variation, nm')
-        plt.title('Simulation')
+        plt.title('simulation')
         plt.tight_layout()
+        return fig
 
     
     def plotERV(self):
-        plt.figure(2)  
+        fig=plt.figure(2)  
         plt.clf() 
         plt.plot(self.x,self.ERV)
         plt.title('ERV')
         plt.xlabel(r'Position, $\mu$m')
         plt.ylabel('Variation, nm')
+        return fig
         
     def save(self,path='\\',file_name='Numerical_model_SNAP.pkl'):
         file=open(path+file_name,'wb')

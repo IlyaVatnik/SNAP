@@ -2,7 +2,9 @@
 """
 Created on Fri Sep 25 16:30:03 2020
 
-@author: Ilya
+@author: Ilya Vatnik
+
+v.1 
 """
 
 import numpy as np
@@ -14,6 +16,7 @@ from scipy import interpolate
 from scipy.optimize import minimize as sp_minimize
 
 R_0=62.5
+Cmap='jet'
 
 def load_exp_data(file_name):
     number_of_axis={'X':0,'Y':1,'Z':2,'W':3,'p':4}
@@ -54,21 +57,22 @@ def plot_exp_data(x,w,signal,lambda_0):
         nY2=(y2-lambda_0)/w_0*R_0*1e3
         ax_Radius.set_ylim(nY1, nY2)
 
-    fig2=plt.figure(10)
+    fig=plt.figure(10)
     plt.clf()
-    ax_Wavelengths = fig2.subplots()
+    ax_Wavelengths = fig.subplots()
     ax_Radius = ax_Wavelengths.twinx()
     ax_Wavelengths.callbacks.connect("ylim_changed", _convert_ax_Wavelength_to_Radius)
     try:
-        im = ax_Wavelengths.pcolorfast(x,w,signal)
+        im = ax_Wavelengths.pcolorfast(x,w,signal,cmap=Cmap)
     except:
-        im = ax_Wavelengths.pcolor(x,w,signal)
+        im = ax_Wavelengths.contourf(x,w,signal,cmap=Cmap)
     plt.colorbar(im,ax=ax_Radius,pad=0.12)
     ax_Wavelengths.set_xlabel(r'Position, $\mu$m')
     ax_Wavelengths.set_ylabel('Wavelength, nm')
     ax_Radius.set_ylabel('Variation, nm')
     plt.title('experiment')
     plt.tight_layout()
+    return fig
     
 def difference_on_taper_at_distinct_x(taper_params,*details):
     (absS,phaseS,ReD,ImD_exc,C)=taper_params
