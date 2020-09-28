@@ -163,7 +163,7 @@ class SNAP():
         plt.ylabel('Transmission')
         return fig
     
-    def plot_spectrogram(self):
+    def plot_spectrogram(self,plot_ERV=False):
         wave_max=max(self.lambdas)
         def _convert_ax_Wavelength_to_Radius(ax_Wavelengths):
             """
@@ -189,11 +189,13 @@ class SNAP():
         ax_Wavelengths.set_ylabel('Wavelength, nm')
         ax_Radius.set_ylabel('Variation, nm')
         plt.title('simulation')
+        if plot_ERV:
+            ax_Radius.plot(self.x,self.ERV)
         plt.tight_layout()
         return fig
 
     
-    def plotERV(self):
+    def plot_ERV(self):
         fig=plt.figure(2)  
         plt.clf() 
         plt.plot(self.x,self.ERV)
@@ -237,7 +239,7 @@ if __name__=='__main__':
     
     SNAP=SNAP(x,ERV,lambda_array,lambda_0=1550)
     SNAP.set_taperParams(absS=0.7,phaseS=0.05,ReD=0.0002,ImD_exc=0,Csquared=1e-4)
-    SNAP.plot_spectrogram()
+    SNAP.plot_spectrogram(plot_ERV=True)
     SNAP.plotERV()
     SNAP.plot_spectrum(0)
     print(SNAP.get_taperParams())
