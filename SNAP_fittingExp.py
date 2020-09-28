@@ -83,64 +83,56 @@ def difference_on_taper_at_distinct_x(taper_params,*details):
     lambdas,num_data=SNAP.get_spectrum(x_0)
     return np.sum(abs(exp_data-num_data))
 
-def difference_on_taper(taper_params,*details):
+
+def difference_between_exp_and_num(x_exp,exp_data,x_num,num_data,lambdas):
+    f = interpolate.interp2d(x_num, lambdas, num_data, kind='cubic')
+    return np.sum(abs(exp_data-f(x_exp,lambdas)))
+
+def _difference_for_ERV(ERV_params,*details):
+    ERV_f,x,wavelengths,lambda_0,taper_params,x_exp,signal_exp=details
+    ERV_array=ERV_f(x,ERV_params)
+    SNAP=SNAP_model.SNAP(x,ERV_array,wavelengths,lambda_0)
+    SNAP.set_taperParams(*taper_params)
+    x,lambdas,num_data=SNAP.derive_transmission()
+    return difference_between_exp_and_num(x_exp,signal_exp,x,num_data,lambdas)
+
+
+def _difference_on_taper(taper_params,*details):
     (absS,phaseS,ReD,ImD_exc,C)=taper_params
     x,ERV,lambdas,lambda_0,x_exp,exp_data=details
     SNAP=SNAP_model.SNAP(x,ERV,lambdas,lambda_0)
     SNAP.set_taperParams(absS,phaseS,ReD,ImD_exc,C)
     x,lambdas,num_data=SNAP.derive_transmission()
-    f = interpolate.interp2d(x, lambdas, num_data, kind='cubic')
-    return np.sum(abs(exp_data-f(x_exp,lambdas)))
+    return difference_between_exp_and_num(x_exp,exp_data,x,num_data,lambdas)
 
 
-def optimize_taper_params_at_x(x_0,x,ERV,wavelengths,lambda_0,init_taper_params,exp_data):
-    SNAP=SNAP_model(x,ERV,wavelengths,lambda_0)
-    bounds=((0,1),(0,1),(0.0001,0.05),(0,5e-2),(1e-5,5e-2))
-    i_x_exp=np.argmin(abs(x-x_0))
+def optimize_taper_params(x,ERV,wavelengths,lambda_0,init_taper_params,exp_data,bounds,max_iter=5):
+    x_exp,signal_exp=exp_data[0],exp_data[1]
     options={}
-    options['maxiter']=5
-    (absS,phaseS,ReD,ImD_exc,C)=init_taper_params # use current taper parameters as initial guess
-    res=sp_minimize(difference_on_taper_at_distinct_x,[absS,phaseS,ReD,ImD_exc,C],args=(SNAP,x_0,exp_data[:,i_x_exp]),bounds=bounds,options=options)
-    plt.figure(20)
-    plt.plot(wavelengths,exp_data[:,i_x_exp])
-    lambdas,transmission=SNAP.get_spectrum(x_0)
-    plt.plot(lambdas,transmission)
-    plt.title('X={}'.format(x[i_x_exp]))
-    return res
-
-def optimize_taper_params(x,ERV,wavelengths,lambda_0,init_taper_params,x_exp,exp_data,bounds):
-    options={}
-    options['maxiter']=1  
+    options['maxiter']=max_iter 
     [absS,phaseS,ReD,ImD_exc,C]=init_taper_params # use current taper parameters as initial guess
-    res=sp_minimize(difference_on_taper,[absS,phaseS,ReD,ImD_exc,C],args=(x,ERV,wavelengths,lambda_0,x_exp,exp_data),bounds=bounds,options=options)
+    res=sp_minimize(_difference_on_taper,[absS,phaseS,ReD,ImD_exc,C],args=(x,ERV,wavelengths,lambda_0,x_exp,signal_exp),bounds=bounds,options=options)
     taper_params=res.x
     return res, taper_params
-    
+   
 
 
-def ERV_gauss(ERV_params,*details):
+def optimize_ERV(ERV_f,x,initial_ERV_params,wavelengths,lambda_0,taper_params,exp_data,bounds=None,max_iter=5):
+    x_exp,signal_exp=exp_data[0],exp_data[1]
+    options={}
+    options['maxiter']=max_iter  
+    [absS,phaseS,ReD,ImD_exc,C]=taper_params # use current taper parameters as initial guess
+    res=sp_minimize(_difference_for_ERV,initial_ERV_params,args=(ERV_f,x,wavelengths,lambda_0,taper_params,x_exp,signal_exp),bounds=bounds,options=options)
+    ERV_params=res.x
+    return res, ERV_params
+
+
+
+def ERV_gauss(x,ERV_params):
     x_0=ERV_params[0]
     sigma=ERV_params[1]
     A=ERV_params[2]
-    x=details[0]
+    x
     return np.array(list(map(lambda x:np.exp(-(x-x_0)**2/2/sigma**2)*A,x)))
-
-def difference_on_ERV(ERV_params,*details):
-    x,wavelengths,lambda_0,taper_params,x_exp,exp_data=details
-    ERV=ERV_gauss(ERV_params,*details)
-    SNAP=SNAP_model.SNAP(x,ERV,wavelengths,lambda_0)
-    SNAP.set_taperParams(*taper_params)
-    SNAP.plot_spectrogram()
-    x,lambdas,num_data=SNAP.derive_transmission()
-    f = interpolate.interp2d(x, lambdas, num_data, kind='cubic')
-    return bn.nansum(abs(exp_data-bn.nanmean(exp_data)*(f(x_exp,lambdas)-bn.nanmean(num_data))))
-
-def optimize_ERV(x,initial_ERV_params,wavelengths,lambda_0,taper_params,x_exp,exp_data,bounds=None):
-    options={}
-    options['maxiter']=10  
-    [absS,phaseS,ReD,ImD_exc,C]=taper_params # use current taper parameters as initial guess
-    res=sp_minimize(difference_on_ERV,initial_ERV_params,args=(x,wavelengths,lambda_0,taper_params,x_exp,exp_data),bounds=bounds,options=options)
-    ERV_params=res.x
-    return res, ERV_params
 
 

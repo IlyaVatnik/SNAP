@@ -137,7 +137,7 @@ class SNAP():
         taper_S=self.taper_absS*np.exp(1j*self.taper_phaseS*np.pi)
         T=np.zeros((len(self.lambdas),len(self.x)))
         for ii,wavelength in enumerate(self.lambdas):
-            if ii%50==0: print('{} of {}'.format(ii,len(self.lambdas)))
+            if ii%50==0: print('Deriving T for wl={}, {} of {}'.format(wavelength,ii,len(self.lambdas)))
             U=-2*self.k0**2*self.ERV*(1e-3)/self.R_0
             eigvals,eigvecs=self.solve_Shrodinger(U)
             G=self.GreenFunction(eigvals,eigvecs,wavelength)
