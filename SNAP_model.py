@@ -52,7 +52,7 @@ class SNAP():
         self.Cmap='jet'
         
         
-    def set_fiberParams(self,res_width=None,R_0=None,n=None):
+    def set_fiber_params(self,res_width=None,R_0=None,n=None):
         if res_width is not None:
             self.res_width=res_width    # in nm, resonance width corresponding to inner losses of resonator
         if R_0 is not None:
@@ -61,7 +61,7 @@ class SNAP():
             self.n=n                 ## Cladding refractive index
         self.needToUpdateTransmission=True
             
-    def get_fiberParams(self,**a):
+    def get_fiber_params(self,**a):
         return self.res_width,self.R_0,self.n
             
     def min_imag_D(self):
@@ -73,7 +73,7 @@ class SNAP():
         taper_ImD=self.taper_ImD_exc+self.min_imag_D()
         return abs(self.taper_absS)**2*taper_ImD/taper_ReS
     
-    def set_taperParams(self,absS=None,phaseS=None,ReD=None,ImD_exc=None,Csquared=None):
+    def set_taper_params(self,absS=None,phaseS=None,ReD=None,ImD_exc=None,Csquared=None):
         if absS is not None:
             if absS>=1:
                 print('abs(S_0) cannot be larger then 1! S_0 is kept to {}'.format(self.taper_absS))
@@ -98,7 +98,7 @@ class SNAP():
                
 
             
-    def get_taperParams(self):
+    def get_taper_params(self):
         return self.taper_absS,self.taper_phaseS,self.taper_ReD,self.taper_ImD_exc,self.taper_Csquared
         
     def solve_Shrodinger(self,U):

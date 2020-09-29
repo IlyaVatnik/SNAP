@@ -14,6 +14,7 @@ import pickle
 import bottleneck as bn
 from scipy import interpolate
 from scipy.optimize import minimize as sp_minimize
+from scipy import signal
 
 R_0=62.5
 Cmap='jet'
@@ -73,37 +74,29 @@ def plot_exp_data(x,w,signal,lambda_0):
     plt.title('experiment')
     plt.tight_layout()
     return fig
-    
-def difference_on_taper_at_distinct_x(taper_params,*details):
-    (absS,phaseS,ReD,ImD_exc,C)=taper_params
-    SNAP=details[0]
-    x_0=details[1]
-    exp_data=details[2]
-    SNAP.set_taperParams(absS,phaseS,ReD,ImD_exc,C)
-    lambdas,num_data=SNAP.get_spectrum(x_0)
-    return np.sum(abs(exp_data-num_data))
-
 
 def difference_between_exp_and_num(x_exp,exp_data,x_num,num_data,lambdas):
     f = interpolate.interp2d(x_num, lambdas, num_data, kind='cubic')
-    return np.sum(abs(exp_data-f(x_exp,lambdas)))
+#    print(np.shape(exp_data),np.shape(f(x_exp,lambdas)))
+#    return signal.correlate(exp_data,np.reshape(f(x_exp,lambdas),-1))
+    return np.sum(abs(exp_data-(f(x_exp,lambdas))))
 
 def _difference_for_ERV(ERV_params,*details):
     ERV_f,x,wavelengths,lambda_0,taper_params,x_exp,signal_exp=details
     ERV_array=ERV_f(x,ERV_params)
     SNAP=SNAP_model.SNAP(x,ERV_array,wavelengths,lambda_0)
-    SNAP.set_taperParams(*taper_params)
+    SNAP.set_taper_params(*taper_params)
     x,lambdas,num_data=SNAP.derive_transmission()
     return difference_between_exp_and_num(x_exp,signal_exp,x,num_data,lambdas)
 
 
 def _difference_on_taper(taper_params,*details):
     (absS,phaseS,ReD,ImD_exc,C)=taper_params
-    x,ERV,lambdas,lambda_0,x_exp,exp_data=details
+    x,ERV,lambdas,lambda_0,x_exp,signal_exp=details
     SNAP=SNAP_model.SNAP(x,ERV,lambdas,lambda_0)
-    SNAP.set_taperParams(absS,phaseS,ReD,ImD_exc,C)
+    SNAP.set_taper_params(absS,phaseS,ReD,ImD_exc,C)
     x,lambdas,num_data=SNAP.derive_transmission()
-    return difference_between_exp_and_num(x_exp,exp_data,x,num_data,lambdas)
+    return difference_between_exp_and_num(x_exp,signal_exp,x,num_data,lambdas)
 
 
 def optimize_taper_params(x,ERV,wavelengths,lambda_0,init_taper_params,exp_data,bounds,max_iter=5):
