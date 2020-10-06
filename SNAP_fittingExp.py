@@ -14,7 +14,8 @@ import pickle
 import bottleneck as bn
 from scipy import interpolate
 from scipy.optimize import minimize as sp_minimize
-from scipy import signal
+import scipy.signal
+from  scipy.ndimage import center_of_mass
 
 R_0=62.5
 Cmap='jet'
@@ -46,6 +47,13 @@ def load_ERV_estimation_data(file_name):
         x_ERV=np.linspace(min(x_ERV),max(x_ERV),len(x_ERV))
         ERV=f(x_ERV)
     return x_ERV,ERV,lambda_0
+
+def find_exp_modes(wavelengths,lambda_0,exp_data):
+    data_shrinked=np.nanmin(exp_data,axis=1)
+    mode_indexes,_=scipy.signal.find_peaks(-data_shrinked,prominence=bn.nanstd(data_shrinked))
+    mode_wavelengths=np.sort(wavelengths[mode_indexes])
+    mode_wavelengths=np.array([x for x in mode_wavelengths if x>lambda_0])
+    return mode_wavelengths
 
 def plot_exp_data(x,w,signal,lambda_0):
     w_0=np.mean(w)
@@ -81,13 +89,38 @@ def difference_between_exp_and_num(x_exp,exp_data,x_num,num_data,lambdas):
 #    return signal.correlate(exp_data,np.reshape(f(x_exp,lambdas),-1))
     return np.sum(abs(exp_data-(f(x_exp,lambdas))))
 
-def _difference_for_ERV(ERV_params,*details):
-    ERV_f,x,wavelengths,lambda_0,taper_params,x_exp,signal_exp=details
-    ERV_array=ERV_f(x,ERV_params)
+def _difference_for_ERV_shape(ERV_params,*details):
+    ERV_f,x_0_ERV,x,wavelengths,lambda_0,taper_params,x_exp,signal_exp=details
+    ERV_array=ERV_f(x,x_0_ERV,ERV_params)
     SNAP=SNAP_model.SNAP(x,ERV_array,wavelengths,lambda_0)
     SNAP.set_taper_params(*taper_params)
     x,lambdas,num_data=SNAP.derive_transmission()
-    return difference_between_exp_and_num(x_exp,signal_exp,x,num_data,lambdas)
+    num_modes=SNAP.find_modes()
+    N_num=len(num_modes)
+    exp_modes=find_exp_modes(wavelengths,lambda_0,signal_exp)
+    N_exp=len(exp_modes)
+    if N_num>N_exp:
+        exp_modes=np.sort(np.append(exp_modes,lambda_0*np.ones((N_num-N_exp,1))))
+    elif N_exp>N_num:
+        num_modes=np.sort(np.append(num_modes,lambda_0*np.ones((N_exp-N_num,1))))
+    t=np.sum(abs(num_modes-exp_modes))
+    print('difference is {}'.format(t))
+    return t
+
+def _difference_for_ERV_position(x_0_ERV,*details):
+    ERV_f,ERV_params,x,wavelengths,lambda_0,taper_params,x_exp,signal_exp=details
+    ERV_array=np.squeeze(ERV_f(x,x_0_ERV,ERV_params))
+    SNAP=SNAP_model.SNAP(x,ERV_array,wavelengths,lambda_0)
+    SNAP.set_taper_params(*taper_params)
+    x,lambdas,num_data=SNAP.derive_transmission()
+    x_center_num=x[int(center_of_mass(num_data)[1])]
+    x_center_exp=x_exp[int(center_of_mass(signal_exp)[1])]
+    t=abs(x_center_exp-x_center_num)
+    print('difference in mass centers is {}'.format(t))
+    return t
+        
+        
+    # return difference_between_exp_and_num(x_exp,signal_exp,x,num_data,lambdas)
 
 
 def _difference_on_taper(taper_params,*details):
@@ -110,22 +143,36 @@ def optimize_taper_params(x,ERV,wavelengths,lambda_0,init_taper_params,exp_data,
    
 
 
-def optimize_ERV(ERV_f,x,initial_ERV_params,wavelengths,lambda_0,taper_params,exp_data,bounds=None,max_iter=5):
+def optimize_ERV_shape(ERV_f,initial_ERV_params,x_0_ERV,x,wavelengths,lambda_0,
+                       taper_params,exp_data,bounds=None,max_iter=20):
     x_exp,signal_exp=exp_data[0],exp_data[1]
     options={}
     options['maxiter']=max_iter  
     [absS,phaseS,ReD,ImD_exc,C]=taper_params # use current taper parameters as initial guess
-    res=sp_minimize(_difference_for_ERV,initial_ERV_params,args=(ERV_f,x,wavelengths,lambda_0,taper_params,x_exp,signal_exp),bounds=bounds,options=options)
+    res=sp_minimize(_difference_for_ERV_shape,initial_ERV_params,args=(ERV_f,x_0_ERV,x,wavelengths,lambda_0,taper_params,x_exp,signal_exp),
+                    bounds=bounds,options=options,method='Powell')
     ERV_params=res.x
     return res, ERV_params
 
+def optimize_ERV_position(ERV_f,initial_x_0_ERV,x,ERV_params,
+                          wavelengths,lambda_0,taper_params,exp_data,
+                          bounds=None,max_iter=20):
+    x_exp,signal_exp=exp_data[0],exp_data[1]
+    options={}
+    options['maxiter']=max_iter  
+    [absS,phaseS,ReD,ImD_exc,C]=taper_params # use current taper parameters as initial guess
+    res=sp_minimize(_difference_for_ERV_position,initial_x_0_ERV,
+                    args=(ERV_f,ERV_params,x,wavelengths,lambda_0,taper_params,x_exp,signal_exp),
+                    bounds=bounds,options=options,method='Powell')
+    x_0_ERV_res=res.x
+    return res, x_0_ERV_res
 
 
-def ERV_gauss(x,ERV_params):
-    x_0=ERV_params[0]
-    sigma=ERV_params[1]
-    A=ERV_params[2]
-    x
+
+def ERV_gauss(x,x_0_ERV,ERV_params):
+    sigma=ERV_params[0]
+    A=ERV_params[1]
+    x_0=x_0_ERV
     return np.array(list(map(lambda x:np.exp(-(x-x_0)**2/2/sigma**2)*A,x)))
 
 

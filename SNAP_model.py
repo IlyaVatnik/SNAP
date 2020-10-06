@@ -16,7 +16,7 @@ from scipy import sparse
 import scipy.linalg as la
 import matplotlib.pyplot as plt
 import pickle
-
+import scipy.signal
 
 
 class SNAP():
@@ -39,9 +39,9 @@ class SNAP():
         self.Res_Width=(8*np.pi**2*self.n**2/(self.lambda_0*1e-3)**3)*self.res_width
         
         
-        self.Transmission=None
+        self.transmission=None
         self.lambdas=Wavelengths
-        self.needToUpdateTransmission=True
+        self.need_to_update_transmission=True
         
         self.taper_absS=taper_absS
         self.taper_phaseS=taper_phaseS
@@ -59,7 +59,7 @@ class SNAP():
             self.R_0=R_0                  ## Fiber radius, in um
         if n is not None:
             self.n=n                 ## Cladding refractive index
-        self.needToUpdateTransmission=True
+        self.need_to_update_transmission=True
             
     def get_fiber_params(self,**a):
         return self.res_width,self.R_0,self.n
@@ -79,21 +79,21 @@ class SNAP():
                 print('abs(S_0) cannot be larger then 1! S_0 is kept to {}'.format(self.taper_absS))
             else:
                 self.taper_absS=absS
-                self.needToUpdateTransmission=True
+                self.need_to_update_transmission=True
                 
         if phaseS is not None:
             self.taper_phaseS=phaseS
-            self.needToUpdateTransmission=True
+            self.need_to_update_transmission=True
         
         if Csquared is not None:
             self.taper_Csquared=Csquared
-            self.needToUpdateTransmission=True
+            self.need_to_update_transmission=True
         if ReD is not None:
             self.taper_ReD=ReD
-            self.needToUpdateTransmission=True
+            self.need_to_update_transmission=True
         if ImD_exc is not None:
             self.taper_ImD_exc=ImD_exc
-            self.needToUpdateTransmission=True    
+            self.need_to_update_transmission=True    
         
                
 
@@ -132,29 +132,30 @@ class SNAP():
 #        return bn.nansum(eigvecs*np.conjugate(eigvecs)/eigvals,1)
         
     
-    def derive_transmission(self):
+    def derive_transmission(self,show_progress=False):
         taper_D=self.taper_ReD+1j*(self.taper_ImD_exc+self.min_imag_D())
         taper_S=self.taper_absS*np.exp(1j*self.taper_phaseS*np.pi)
         T=np.zeros((len(self.lambdas),len(self.x)))
         for ii,wavelength in enumerate(self.lambdas):
-            if ii%50==0: print('Deriving T for wl={}, {} of {}'.format(wavelength,ii,len(self.lambdas)))
+            if ii%50==0 and show_progress: print('Deriving T for wl={}, {} of {}'.format(wavelength,ii,len(self.lambdas)))
             U=-2*self.k0**2*self.ERV*(1e-3)/self.R_0
             eigvals,eigvecs=self.solve_Shrodinger(U)
             G=self.GreenFunction(eigvals,eigvecs,wavelength)
             ComplexTransmission=(taper_S-1j*self.taper_Csquared*G/(1+taper_D*G))  ## 
             T[ii,:]=abs(ComplexTransmission)**2
         
-        self.needToUpdateTransmission=False
-        self.Transmission=T
+        self.need_to_update_transmission=False
+        self.transmission=T
         
-        return self.x, self.lambdas,self.Transmission
+        return self.x, self.lambdas,self.transmission
     
     def get_spectrum(self,x):
-        if self.needToUpdateTransmission:
+        if self.need_to_update_transmission:
             self.derive_transmission()
         i=np.argmin(abs(self.x-x))
-        return self.lambdas,self.Transmission[:,i]
+        return self.lambdas,self.transmission[:,i]
     
+     
     def plot_spectrum(self,x):
         w,l=self.get_spectrum(x)
         fig=plt.figure(3)
@@ -173,7 +174,7 @@ class SNAP():
             nY1=(y1-self.lambda_0)/wave_max*self.R_0*1e3
             nY2=(y2-self.lambda_0)/wave_max*self.R_0*1e3
             ax_Radius.set_ylim(nY1, nY2)
-        if self.needToUpdateTransmission:
+        if self.need_to_update_transmission:
             self.derive_transmission()
         fig=plt.figure(1)
         plt.clf()
@@ -181,9 +182,9 @@ class SNAP():
         ax_Radius = ax_Wavelengths.twinx()
         ax_Wavelengths.callbacks.connect("ylim_changed", _convert_ax_Wavelength_to_Radius)
         try:
-            im = ax_Wavelengths.pcolorfast(self.x,self.lambdas,self.Transmission,cmap=self.Cmap)
+            im = ax_Wavelengths.pcolorfast(self.x,self.lambdas,self.transmission,cmap=self.Cmap)
         except:
-            im = ax_Wavelengths.pcolor(self.x,self.lambdas,self.Transmission, cmap=self.Cmap)
+            im = ax_Wavelengths.pcolor(self.x,self.lambdas,self.transmission, cmap=self.Cmap)
         plt.colorbar(im,ax=ax_Radius,pad=0.12)
         ax_Wavelengths.set_xlabel(r'Position, $\mu$m')
         ax_Wavelengths.set_ylabel('Wavelength, nm')
@@ -193,6 +194,15 @@ class SNAP():
             ax_Radius.plot(self.x,self.ERV)
         plt.tight_layout()
         return fig
+    
+    def find_modes(self):
+        if self.need_to_update_transmission:
+            self.derive_transmission()
+        T_shrinked=np.nanmin(self.transmission,axis=1)
+        mode_indexes,_=scipy.signal.find_peaks(-T_shrinked)
+        temp=np.sort(self.lambdas[mode_indexes])
+        self.mode_wavelengths=np.array([x for x in temp if x>self.lambda_0])
+        return self.mode_wavelengths
 
     
     def plot_ERV(self):
@@ -206,12 +216,12 @@ class SNAP():
         
     def save(self,path='\\',file_name='Numerical_model_SNAP.pkl'):
         file=open(path+file_name,'wb')
-        pickle.dump([self.x,self.ERV,self.lambda_0,self.lambdas,self.Transmission,self.get_taperParams(),self.get_fiberParams()],file)
+        pickle.dump([self.x,self.ERV,self.lambda_0,self.lambdas,self.transmission,self.get_taperParams(),self.get_fiberParams()],file)
         file.close()
         
     def load(self,path='\\',file_name='Numerical_model_SNAP.pkl'):
         file=open(path+file_name,'rb')
-        self.x,self.ERV,self.lambda_0,self.lambdas,self.Transmission,taper_params,fiber_params=pickle.load(file)
+        self.x,self.ERV,self.lambda_0,self.lambdas,self.transmission,taper_params,fiber_params=pickle.load(file)
         absS,phaseS,ReD,ImD_exc,C2=taper_params
         self.set_taperParams(absS,phaseS,ReD,ImD_exc,C2)
         r,R,n=fiber_params
@@ -238,11 +248,13 @@ if __name__=='__main__':
     ERV=np.array(list(map(ERV,x)))
     
     SNAP=SNAP(x,ERV,lambda_array,lambda_0=1550)
-    SNAP.set_taperParams(absS=0.7,phaseS=0.05,ReD=0.0002,ImD_exc=0,Csquared=1e-4)
+    SNAP.set_taper_params(absS=0.7,phaseS=0.05,ReD=0.0002,ImD_exc=0,Csquared=1e-4)
     SNAP.plot_spectrogram(plot_ERV=True)
-    SNAP.plotERV()
+    SNAP.plot_ERV()
     SNAP.plot_spectrum(0)
-    print(SNAP.get_taperParams())
+    print(SNAP.get_taper_params())
+    print(SNAP.find_modes())
+
 #    SNAP.load()
     
         
