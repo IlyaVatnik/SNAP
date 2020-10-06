@@ -111,12 +111,13 @@ def _difference_for_ERV_position(x_0_ERV,*details):
     ERV_f,ERV_params,x,wavelengths,lambda_0,taper_params,x_exp,signal_exp=details
     ERV_array=np.squeeze(ERV_f(x,x_0_ERV,ERV_params))
     SNAP=SNAP_model.SNAP(x,ERV_array,wavelengths,lambda_0)
+    # print(ERV_array)
     SNAP.set_taper_params(*taper_params)
-    x,lambdas,num_data=SNAP.derive_transmission()
-    x_center_num=x[int(center_of_mass(num_data)[1])]
+    x_num,lambdas,num_data=SNAP.derive_transmission()
+    x_center_num=x_num[int(center_of_mass(num_data)[1])]
     x_center_exp=x_exp[int(center_of_mass(signal_exp)[1])]
     t=abs(x_center_exp-x_center_num)
-    print('difference in mass centers is {}'.format(t))
+    print('num={},exp={},difference in mass centers is {}'.format(x_center_num,x_center_exp,t))
     return t
         
         
@@ -150,7 +151,7 @@ def optimize_ERV_shape(ERV_f,initial_ERV_params,x_0_ERV,x,wavelengths,lambda_0,
     options['maxiter']=max_iter  
     [absS,phaseS,ReD,ImD_exc,C]=taper_params # use current taper parameters as initial guess
     res=sp_minimize(_difference_for_ERV_shape,initial_ERV_params,args=(ERV_f,x_0_ERV,x,wavelengths,lambda_0,taper_params,x_exp,signal_exp),
-                    bounds=bounds,options=options,method='Powell')
+                    bounds=bounds,options=options,method='Nelder-Mead')
     ERV_params=res.x
     return res, ERV_params
 
@@ -163,7 +164,7 @@ def optimize_ERV_position(ERV_f,initial_x_0_ERV,x,ERV_params,
     [absS,phaseS,ReD,ImD_exc,C]=taper_params # use current taper parameters as initial guess
     res=sp_minimize(_difference_for_ERV_position,initial_x_0_ERV,
                     args=(ERV_f,ERV_params,x,wavelengths,lambda_0,taper_params,x_exp,signal_exp),
-                    bounds=bounds,options=options,method='Powell')
+                    bounds=bounds,options=options,method='Nelder-Mead')
     x_0_ERV_res=res.x
     return res, x_0_ERV_res
 

@@ -12,7 +12,7 @@ import pickle
 from scipy import interpolate
 from scipy.optimize import minimize as sp_minimize
 import scipy.signal
-
+from  scipy.ndimage import center_of_mass
 
 FolderPath=''
 DataFile='Processed_spectrogram_one_peak_cropped.pkl'
@@ -53,8 +53,8 @@ plt.plot(wavelengths,exp_data[:,ind_exp])
 ##########################
 ERV_f=SNAP_exp.ERV_gauss
 ERV_params_bounds=((-np.inf,np.inf),(np.nanmax(ERV_est)*0.7,np.nanmax(ERV_est)*1.3))
-res,ERV_params=SNAP_exp.optimize_ERV_shape(ERV_f,init_ERV_params,x_center_0,x_num,wavelengths,lambda_0,
-                                    taper_params,[x_exp,exp_data],max_iter=10)
+# res,ERV_params=SNAP_exp.optimize_ERV_shape(ERV_f,init_ERV_params,x_center_0,x_num,wavelengths,lambda_0,
+#                                     taper_params,[x_exp,exp_data],max_iter=10)
 res,x_0_ERV=SNAP_exp.optimize_ERV_position(ERV_f,x_center_0,x_num,init_ERV_params,
                                            wavelengths,lambda_0,taper_params,[x_exp,exp_data],max_iter=5)
 # ############################################
@@ -76,9 +76,9 @@ ind_exp=np.argmin(abs(x_exp-x_0))
 plt.plot(wavelengths,exp_data[:,ind_exp])
 
 
-# SNAP_exp.find_exp_modes(wavelengths,lambda_0,exp_data)
-# center_of_mass(exp_data)
-# plt.figure()
-# plt.pcolor(x_exp,wavelengths,exp_data)
-# plt.plot(wavelengths[mode_indexes],data_shrinked[mode_indexes],'x')
-
+SNAP_exp.find_exp_modes(wavelengths,lambda_0,exp_data)
+s=np.nanmean(exp_data,axis=0)
+plt.figure()
+plt.plot(x_exp,s)
+pl.tfigure()
+plt.pcolor(x_exp,wavelengths,exp_data)
