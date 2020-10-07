@@ -239,7 +239,7 @@ if __name__=='__main__':
     lambda_array=np.arange(wave_min,wave_max,res)
     
     def ERV(x):
-        if abs(x)<=200:
+        if abs(x+100)<=200:
 #            return (x)**2
             return 2
         else:
@@ -254,7 +254,6 @@ if __name__=='__main__':
     SNAP.plot_spectrum(0)
     print(SNAP.get_taper_params())
     print(SNAP.find_modes())
-
 #    SNAP.load()
     
         
