@@ -106,6 +106,12 @@ class SNAP():
             
     def get_taper_params(self):
         return self.taper_absS,self.taper_phaseS,self.taper_ReD,self.taper_ImD_exc,self.taper_Csquared
+    
+    def D(self):
+        return self.taper_ReD+1j*(self.taper_ImD_exc+self.min_imag_D())
+    
+    def S(self):
+        return self.taper_absS*np.exp(1j*self.taper_phaseS*np.pi)
         
         
     def solve_Shrodinger(self,U):
@@ -141,8 +147,8 @@ class SNAP():
         
     
     def derive_transmission(self,show_progress=False):
-        taper_D=self.taper_ReD+1j*(self.taper_ImD_exc+self.min_imag_D())
-        taper_S=self.taper_absS*np.exp(1j*self.taper_phaseS*np.pi)
+        taper_D=self.D()
+        taper_S=self.S()
         T=np.zeros((len(self.lambdas),len(self.x)))
         U=-2*self.k0**2*self.ERV*(1e-3)/self.R_0
         eigvals,eigvecs=self.solve_Shrodinger(U)

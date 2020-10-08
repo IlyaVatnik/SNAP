@@ -72,5 +72,7 @@ SNAP_num.save()
 fig=SNAP_num.plot_spectrogram()
 fig.axes[0].set_xlim((min(SNAP_exp.x),max(SNAP_exp.x)))
 fig.axes[0].set_ylim((min(SNAP_exp.wavelengths),max(SNAP_exp.wavelengths)))
-print('absS={}, phaseS={}, ReD={}, ImD_exc={}, C2={}'.format(*SNAP_num.get_taper_params()))
+
+print(SNAP_num.get_taper_params())
+
 
