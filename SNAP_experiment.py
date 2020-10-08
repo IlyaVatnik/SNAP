@@ -35,6 +35,8 @@ class SNAP():
             self.lambda_0=np.min(wavelengths)
         else:
             self.lambda_0=None
+            
+        self.fig_spectrogram=None
         
  
     def load_data(self,file_name):
@@ -86,7 +88,7 @@ class SNAP():
         t_f=np.sum(self.transmission[ind-2:ind+2,:],axis=0)
         return (np.sum(t_f*self.x)/np.sum(t_f))
 
-    def plot_data(self):
+    def plot_spectrogram(self):
         w_0=np.mean(self.wavelengths)
         def _convert_ax_Wavelength_to_Radius(ax_Wavelengths):
             """
@@ -112,7 +114,39 @@ class SNAP():
         ax_Radius.set_ylabel('Variation, nm')
         plt.title('experiment')
         plt.tight_layout()
+        self.fig_spectrogram=fig
         return fig
+    
+    def extract_ERV(self,MinimumPeakDepth,MinWavelength=0,MaxWavelength=1e4):
+        global R_0
+        NumberOfWavelength,Number_of_positions = self.transmission.shape
+        LineWidthArray=np.zeros(Number_of_positions)
+        PeakWavelengthArray=np.zeros(Number_of_positions)
+        PeakWavelengthMatrix=np.zeros(np.shape(self.transmission))
+        PeakWavelengthMatrix[:]=np.nan
+        WavelengthArray=self.wavelengths
+        Positions=self.x
+        
+        PeakWavelengthArray=[]
+        LineWidthArray=[]
+        Pos=[]
+        for Zind, Z in enumerate(range(0,Number_of_positions)):
+            peakind,_=scipy.signal.find_peaks(1-self.transmission[:,Zind],height=MinimumPeakDepth)
+            NewPeakind=np.extract((WavelengthArray[peakind]>MinWavelength) & (WavelengthArray[peakind]<MaxWavelength),peakind)
+            NewPeakind=NewPeakind[np.argsort(-WavelengthArray[NewPeakind])] ##sort in wavelength decreasing
+            
+            if len(NewPeakind)>0:
+                PeakWavelengthArray.append(WavelengthArray[NewPeakind[0]])
+                PeakWavelengthMatrix[NewPeakind[0],Zind]=-self.transmission[NewPeakind[0],Zind]
+                Pos.append(Positions[Zind])
+                
+        lambda_0=np.nanmin(PeakWavelengthArray)
+        ERV=(PeakWavelengthArray-lambda_0)/np.nanmean(PeakWavelengthArray)*R_0*1e3
+        
+        if self.fig_spectrogram is not None:
+            self.fig_spectrogram.axes[0].pcolormesh(Positions,WavelengthArray,PeakWavelengthMatrix)
+        return np.array(Pos),ERV,np.array(LineWidthArray)
+        
 
 
 

@@ -27,7 +27,6 @@ class SNAP():
         if x is not None:
             self.ERV=ERV
             self.x=x
-            self.dx=x[1]-x[0]
             self.N=len(x)
         
         self.res_width=res_width    # in nm, resonance width corresponding to inner losses of resonator
@@ -102,11 +101,12 @@ class SNAP():
         return self.taper_absS,self.taper_phaseS,self.taper_ReD,self.taper_ImD_exc,self.taper_Csquared
         
     def solve_Shrodinger(self,U):
-        Tmtx=-1/self.dx**2*sparse.diags([-2*np.ones(self.N),np.ones(self.N)[1:],np.ones(self.N)[1:]],[0,-1,1]).toarray()
+        dx=self.x[1]-self.x[0]
+        Tmtx=-1/dx**2*sparse.diags([-2*np.ones(self.N),np.ones(self.N)[1:],np.ones(self.N)[1:]],[0,-1,1]).toarray()
         Vmtx=np.diag(U)
         Hmtx=Tmtx+Vmtx
-        Hmtx[0,-1]=-1/self.dx**2
-        Hmtx[-1,0]=-1/self.dx**2
+        # Hmtx[0,-1]=-1/dx**2
+        # Hmtx[-1,0]=-1/dx**2
         (eigvals,eigvecs)=la.eigh(Hmtx,check_finite=False)
         sorted_indexes=np.argsort(np.real(eigvals))
         eigvals,eigvecs=[eigvals[sorted_indexes],eigvecs[sorted_indexes]]
@@ -216,23 +216,20 @@ class SNAP():
         
     def save(self,path='\\',file_name='Numerical_model_SNAP.pkl'):
         file=open(path+file_name,'wb')
-        pickle.dump([self.x,self.ERV,self.lambda_0,self.lambdas,self.transmission,self.get_taperParams(),self.get_fiberParams()],file)
+        # pickle.dump([self.x,self.ERV,self.lambda_0,self.lambdas,self.transmission,self.get_taper_params(),self.get_fiber_params()],file)
+        pickle.dump(self,file)
         file.close()
+
+    @classmethod
+    def loader(SNAP,f='Numerical_model_SNAP.pkl'):
+        return pickle.load(f)
         
-    def load(self,path='\\',file_name='Numerical_model_SNAP.pkl'):
-        file=open(path+file_name,'rb')
-        self.x,self.ERV,self.lambda_0,self.lambdas,self.transmission,taper_params,fiber_params=pickle.load(file)
-        absS,phaseS,ReD,ImD_exc,C2=taper_params
-        self.set_taperParams(absS,phaseS,ReD,ImD_exc,C2)
-        r,R,n=fiber_params
-        self.set_fiberParams(r,R,n)
-        file.close()
-        
+
         
 if __name__=='__main__':
 
     
-    N=600
+    N=300
     wave_min,wave_max,res=1549.98,1550.07, 3e-4
     
     x=np.linspace(-700,700,N)
@@ -248,12 +245,12 @@ if __name__=='__main__':
     ERV=np.array(list(map(ERV,x)))
     
     SNAP=SNAP(x,ERV,lambda_array,lambda_0=1550)
-    SNAP.set_taper_params(absS=0.7,phaseS=0.05,ReD=0.0002,ImD_exc=0,Csquared=1e-4)
+    SNAP.set_taper_params(absS=0.7,phaseS=0.05,ReD=0.0002,ImD_exc=1e-4,Csquared=1e-4)
     SNAP.plot_spectrogram(plot_ERV=True)
     SNAP.plot_ERV()
     SNAP.plot_spectrum(0)
     print(SNAP.find_modes())
-#    SNAP.load()
+    SNAP.save()
     
         
     

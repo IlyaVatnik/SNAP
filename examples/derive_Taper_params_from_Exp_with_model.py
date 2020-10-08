@@ -22,28 +22,31 @@ DataFile='Processed_spectrogram_one_mode.pkl'
 
 SNAP_exp=SNAP_experiment.SNAP()
 SNAP_exp.load_data(FolderPath+DataFile)
-fig_exp=SNAP_exp.plot_data()
+fig_exp=SNAP_exp.plot_spectrogram()
 
 ###################
-N=300
-x_num=np.linspace(min(SNAP_exp.x),max(SNAP_exp.x),N)
-(absS,phaseS,ReD,ImD_exc,C2)=(0.9,0.05,+1e-2,4e-4,1e-4)
-taper_params=(absS,phaseS,ReD,ImD_exc,C2)
 
-x_center=7971
-ERV_params=[5.15689300e+01,  6.10237464e+00, 0*-9.58333333e-04]
-ERV=SNAP_experiment.ERV_gauss(x_num,x_center,ERV_params)
-
-lambda_0=1552.32
+# N=100
+# x_num=np.linspace(min(SNAP_exp.x),max(SNAP_exp.x),N)
+# (absS,phaseS,ReD,ImD_exc,C2)=(0.9,0.05,+1e-2,4e-4,1e-4)
+# taper_params=(absS,phaseS,ReD,ImD_exc,C2)
+# x_center=7971
+# ERV_params=[5.70936663e+01,  5.89798060e+00, -1.14857411e-04]
+# ERV=SNAP_experiment.ERV_gauss(x_num,x_center,ERV_params)
+# lambda_0=1552.32
+# 
+# SNAP_num=SNAP_model.SNAP(x_num,ERV,SNAP_exp.wavelengths,lambda_0)
+# SNAP_num.set_taper_params(*taper_params)
 ######################
 
-SNAP_num=SNAP_model.SNAP(x_num,ERV,SNAP_exp.wavelengths,lambda_0)
-SNAP_num.set_taper_params(*taper_params)
-SNAP_num.plot_ERV() 
+SNAP_num=SNAP_model.SNAP.loader()
+
+
+
 fig_num=SNAP_num.plot_spectrogram(plot_ERV=True)
 fig_num.axes[0].set_xlim((SNAP_exp.x[0],SNAP_exp.x[-1]))
 
-res,taper_params=SNAP_experiment.optimize_taper_params(x_num,ERV,SNAP_exp.wavelengths,lambda_0,
+res,taper_params=SNAP_experiment.optimize_taper_params(SNAP_num.x,SNAP_num.ERV,SNAP_exp.wavelengths,lambda_0,
                                                        taper_params,SNAP_exp,max_iter=5)
 
 ################
