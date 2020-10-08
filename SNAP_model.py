@@ -102,11 +102,11 @@ class SNAP():
         return self.taper_absS,self.taper_phaseS,self.taper_ReD,self.taper_ImD_exc,self.taper_Csquared
         
     def solve_Shrodinger(self,U):
-        Tmtx=-1/self.dx**2*sparse.diags([-2*np.ones(self.N)+U,np.ones(self.N)[1:],np.ones(self.N)[1:]],[0,-1,1]).toarray()
+        Tmtx=-1/self.dx**2*sparse.diags([-2*np.ones(self.N),np.ones(self.N)[1:],np.ones(self.N)[1:]],[0,-1,1]).toarray()
         Vmtx=np.diag(U)
         Hmtx=Tmtx+Vmtx
-#        Hmtx[0,-1]=-1/self.dx**2
-#        Hmtx[-1,0]=-1/self.dx**2
+        Hmtx[0,-1]=-1/self.dx**2
+        Hmtx[-1,0]=-1/self.dx**2
         (eigvals,eigvecs)=la.eigh(Hmtx,check_finite=False)
         sorted_indexes=np.argsort(np.real(eigvals))
         eigvals,eigvecs=[eigvals[sorted_indexes],eigvecs[sorted_indexes]]
@@ -136,10 +136,10 @@ class SNAP():
         taper_D=self.taper_ReD+1j*(self.taper_ImD_exc+self.min_imag_D())
         taper_S=self.taper_absS*np.exp(1j*self.taper_phaseS*np.pi)
         T=np.zeros((len(self.lambdas),len(self.x)))
+        U=-2*self.k0**2*self.ERV*(1e-3)/self.R_0
+        eigvals,eigvecs=self.solve_Shrodinger(U)
         for ii,wavelength in enumerate(self.lambdas):
             if ii%50==0 and show_progress: print('Deriving T for wl={}, {} of {}'.format(wavelength,ii,len(self.lambdas)))
-            U=-2*self.k0**2*self.ERV*(1e-3)/self.R_0
-            eigvals,eigvecs=self.solve_Shrodinger(U)
             G=self.GreenFunction(eigvals,eigvecs,wavelength)
             ComplexTransmission=(taper_S-1j*self.taper_Csquared*G/(1+taper_D*G))  ## 
             T[ii,:]=abs(ComplexTransmission)**2
@@ -232,14 +232,14 @@ class SNAP():
 if __name__=='__main__':
 
     
-    N=200
+    N=600
     wave_min,wave_max,res=1549.98,1550.07, 3e-4
     
-    x=np.linspace(-600,600,N)
+    x=np.linspace(-700,700,N)
     lambda_array=np.arange(wave_min,wave_max,res)
     
     def ERV(x):
-        if abs(x+100)<=200:
+        if abs(x)<=200:
 #            return (x)**2
             return 2
         else:
@@ -252,7 +252,6 @@ if __name__=='__main__':
     SNAP.plot_spectrogram(plot_ERV=True)
     SNAP.plot_ERV()
     SNAP.plot_spectrum(0)
-    print(SNAP.get_taper_params())
     print(SNAP.find_modes())
 #    SNAP.load()
     

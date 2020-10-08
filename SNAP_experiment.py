@@ -116,11 +116,13 @@ class SNAP():
 
 
 
-def _difference_between_exp_and_num(self,x_exp,exp_data,x_num,num_data,lambdas):
+def _difference_between_exp_and_num(x_exp,exp_data,x_num,num_data,lambdas):
     f = interpolate.interp2d(x_num, lambdas, num_data, kind='cubic')
 #    print(np.shape(exp_data),np.shape(f(x_exp,lambdas)))
 #    return signal.correlate(exp_data,np.reshape(f(x_exp,lambdas),-1))
-    return np.sum(abs(exp_data-(f(x_exp,lambdas))))
+    t=np.sum(abs(exp_data-(f(x_exp,lambdas))))    
+    print('difference is {}'.format(t))
+    return t
 
 
 
@@ -144,14 +146,14 @@ def _difference_for_ERV_position(x_0_ERV,*details):
 
 
 
-def optimize_taper_params(x,ERV,wavelengths,lambda_0,init_taper_params,SNAP_exp,bounds,max_iter=5):
+def optimize_taper_params(x,ERV,wavelengths,lambda_0,init_taper_params,SNAP_exp,bounds=None,max_iter=5):
     def _difference_on_taper(taper_params,*details):
         (absS,phaseS,ReD,ImD_exc,C)=taper_params
-        x,ERV,lambdas,lambda_0,x_exp,signal_exp=details
-        SNAP=SNAP_model.SNAP(x,ERV,lambdas,lambda_0)
+        x,ERV,wavelengths,lambda_0,x_exp,signal_exp=details
+        SNAP=SNAP_model.SNAP(x,ERV,wavelengths,lambda_0)
         SNAP.set_taper_params(absS,phaseS,ReD,ImD_exc,C)
-        x,lambdas,num_data=SNAP.derive_transmission()
-        return _difference_between_exp_and_num(x_exp,signal_exp,x,num_data,lambdas)
+        x,wavelengths,num_data=SNAP.derive_transmission()
+        return _difference_between_exp_and_num(x_exp,signal_exp,x,num_data,wavelengths)
     
     x_exp,signal_exp=SNAP_exp.x,SNAP_exp.transmission
     options={}
