@@ -23,7 +23,7 @@ Initial=0
 SNAP_exp=SNAP_experiment.SNAP()
 SNAP_exp.load_data(FolderPath+DataFile)
 fig_exp=SNAP_exp.plot_spectrogram()
-x_center=7968
+x_center=7975
 ###################
 if Initial:
     N=100
@@ -47,7 +47,7 @@ fig_num=SNAP_num.plot_spectrogram(plot_ERV=True)
 fig_num.axes[0].set_xlim((SNAP_exp.x[0],SNAP_exp.x[-1]))
 
 res,taper_params=SNAP_experiment.optimize_taper_params(SNAP_num.x,SNAP_num.ERV,SNAP_exp.wavelengths,SNAP_num.lambda_0,
-                                                       SNAP_num.get_taper_params(),SNAP_exp,max_iter=10)
+                                                       SNAP_num.get_taper_params(),SNAP_exp,max_iter=5)
 
 ################
 x_0=x_center

@@ -107,6 +107,7 @@ class SNAP():
     def get_taper_params(self):
         return self.taper_absS,self.taper_phaseS,self.taper_ReD,self.taper_ImD_exc,self.taper_Csquared
         
+        
     def solve_Shrodinger(self,U):
         dx=self.x[1]-self.x[0]
         Tmtx=-1/dx**2*sparse.diags([-2*np.ones(self.N),np.ones(self.N)[1:],np.ones(self.N)[1:]],[0,-1,1]).toarray()
