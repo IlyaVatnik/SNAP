@@ -17,27 +17,34 @@ from  scipy.ndimage import center_of_mass
 
 FolderPath=''
 DataFile='Processed_spectrogram_one_peak_cropped_cropped.pkl'
-    
+Initial=0    
 
 SNAP_exp=SNAP_experiment.SNAP()
 SNAP_exp.load_data(FolderPath+DataFile)
 SNAP_exp.plot_spectrogram()
 x_ERV,ERV_est,lambda_0=SNAP_exp.extract_ERV(0.5)
 width_est=(x_ERV[-1]-x_ERV[0])/6
-
+x_center=7967
+if Initial:
 ###################
-N=100
-x_num=np.linspace(min(SNAP_exp.x),max(SNAP_exp.x),N)
-(absS,phaseS,ReD,ImD_exc,C2)=(0.9,0.0,+1e-3,1e-4,3e-4)
-taper_params=(absS,phaseS,ReD,ImD_exc,C2)
-x_center=7971
-init_ERV_params=[width_est,np.nanmax(ERV_est)*1.2,0]
-ERV=SNAP_experiment.ERV_gauss(x_num,x_center,init_ERV_params)
-lambda_0=1552.32
-######################
+    N=100
+    x_num=np.linspace(min(SNAP_exp.x),max(SNAP_exp.x),N)
+    (absS,phaseS,ReD,ImD_exc,C2)=(0.9,-0.2,+2e-3,1e-3,3.7e-4)
+    taper_params=(absS,phaseS,ReD,ImD_exc,C2)
+    
+    ERV_params=[width_est,np.nanmax(ERV_est)*1.2,0]
+    ERV=SNAP_experiment.ERV_gauss(x_num,x_center,ERV_params)
+    lambda_0=1552.32
+    SNAP_num=SNAP_model.SNAP(x_num,ERV,SNAP_exp.wavelengths,lambda_0)
+    SNAP_num.set_taper_params(*taper_params)
+# # ######################
+else:
+    SNAP_num=SNAP_model.SNAP.loader()
+    x_num=SNAP_num.x
+    ERV_params=SNAP_num.ERV_params
+    taper_params=SNAP_num.get_taper_params()    
+    lambda_0=SNAP_num.lambda_0
 
-SNAP_num=SNAP_model.SNAP(x_num,ERV,SNAP_exp.wavelengths,lambda_0)
-SNAP_num.set_taper_params(*taper_params)
 SNAP_num.plot_ERV() 
 fig_num=SNAP_num.plot_spectrogram()
 fig_num.axes[0].set_xlim((SNAP_exp.x[0],SNAP_exp.x[-1]))
@@ -52,15 +59,15 @@ plt.plot(SNAP_exp.wavelengths,SNAP_exp.transmission[:,ind_exp])
 #
 ##########################
 ERV_f=SNAP_experiment.ERV_gauss
-ERV_params_bounds=((-np.inf,np.inf),(np.nanmax(ERV_est)*0.7,np.nanmax(ERV_est)*1.3))
-res,ERV_params=SNAP_experiment.optimize_ERV_shape(ERV_f,init_ERV_params,x_center,x_num,lambda_0,
-                                    taper_params,SNAP_exp,max_iter=50)
+res,ERV_params=SNAP_experiment.optimize_ERV_shape(ERV_f,ERV_params,x_center,x_num,lambda_0,
+                                                  taper_params,SNAP_exp,max_iter=50)
 # ############################################
 
 ERV_array=SNAP_experiment.ERV_gauss(x_num,x_center,ERV_params)
 print(ERV_params)
 SNAP_num=SNAP_model.SNAP(x_num,ERV_array,SNAP_exp.wavelengths,lambda_0)
 SNAP_num.set_taper_params(*taper_params)
+SNAP_num.ERV_params=ERV_params
 SNAP_num.plot_spectrogram(plot_ERV=True)
 fig_num.axes[0].set_xlim((SNAP_exp.x[0],SNAP_exp.x[-1]))
 plt.show()
@@ -74,6 +81,7 @@ ind_exp=np.argmin(abs(SNAP_exp.x-x_0))
 plt.plot(SNAP_exp.wavelengths,SNAP_exp.transmission[:,ind_exp])
 
 SNAP_num.save()
+
 
 
 

@@ -20,6 +20,11 @@ import scipy.signal
 
 
 class SNAP():
+    @classmethod
+    def loader(SNAP,f_name='SNAP object'):
+        with open(f_name,'rb') as f:
+            return pickle.load(f)
+        
 
     
     def __init__(self,x=None,ERV=None,Wavelengths=None,lambda_0=1550,taper_absS=0.9,taper_phaseS=0,taper_ReD=0.0002,taper_ImD_exc=1e-4,taper_Csquared=1e-2,
@@ -49,6 +54,8 @@ class SNAP():
         self.taper_ImD_exc=taper_ImD_exc
         
         self.Cmap='jet'
+        
+        self.ERV_params=None
         
         
     def set_fiber_params(self,res_width=None,R_0=None,n=None):
@@ -214,16 +221,10 @@ class SNAP():
         plt.ylabel('Variation, nm')
         return fig
         
-    def save(self,path='\\',file_name='Numerical_model_SNAP.pkl'):
-        file=open(path+file_name,'wb')
-        # pickle.dump([self.x,self.ERV,self.lambda_0,self.lambdas,self.transmission,self.get_taper_params(),self.get_fiber_params()],file)
-        pickle.dump(self,file)
-        file.close()
+    def save(self,f_name='SNAP object'):
+        with open(f_name,'wb') as f:
+            return pickle.dump(self,f)
 
-    @classmethod
-    def loader(SNAP,f='Numerical_model_SNAP.pkl'):
-        return pickle.load(f)
-        
 
         
 if __name__=='__main__':
