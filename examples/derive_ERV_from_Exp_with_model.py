@@ -16,15 +16,16 @@ import scipy.signal
 from  scipy.ndimage import center_of_mass
 
 FolderPath=''
-DataFile='Processed_spectrogram_one_peak_cropped_cropped.pkl'
-Initial=0    
+DataFile='Processed_spectrogram_cropped.pkl'
+Initial=1    
 
 SNAP_exp=SNAP_experiment.SNAP()
 SNAP_exp.load_data(FolderPath+DataFile)
 SNAP_exp.plot_spectrogram()
 x_ERV,ERV_est,lambda_0=SNAP_exp.extract_ERV(0.5)
-width_est=(x_ERV[-1]-x_ERV[0])/6
-x_center=7967
+width_est=(x_ERV[-1]-x_ERV[0])/7
+ERV_max_est=np.nanmax(ERV_est)*0.5
+x_center=7310
 if Initial:
 ###################
     N=100
@@ -32,9 +33,9 @@ if Initial:
     (absS,phaseS,ReD,ImD_exc,C2)=(0.9,-0.2,+2e-3,1e-3,3.7e-4)
     taper_params=(absS,phaseS,ReD,ImD_exc,C2)
     
-    ERV_params=[width_est,np.nanmax(ERV_est)*1.2,0]
+    ERV_params=[width_est,ERV_max_est,0]
     ERV=SNAP_experiment.ERV_gauss(x_num,x_center,ERV_params)
-    lambda_0=1552.32
+    lambda_0=1550.775
     SNAP_num=SNAP_model.SNAP(x_num,ERV,SNAP_exp.wavelengths,lambda_0)
     SNAP_num.set_taper_params(*taper_params)
 # # ######################

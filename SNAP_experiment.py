@@ -75,7 +75,7 @@ class SNAP():
 
     def find_modes(self):
         data_shrinked=np.nanmin(self.transmission,axis=1)
-        mode_indexes,_=scipy.signal.find_peaks(-data_shrinked,prominence=bn.nanstd(data_shrinked))
+        mode_indexes,_=scipy.signal.find_peaks(abs(data_shrinked-np.mean(data_shrinked)),prominence=bn.nanstd(data_shrinked))
         mode_wavelengths=np.sort(self.wavelengths[mode_indexes])
         mode_wavelengths=np.array([x for x in mode_wavelengths if x>self.lambda_0])
         self.mode_wavelengths=mode_wavelengths
