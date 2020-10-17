@@ -9,28 +9,27 @@ import numpy as np
 import matplotlib.pyplot as plt
 from SNAP import SNAP_model
 from SNAP import SNAP_experiment
-import pickle
-from scipy import interpolate
-from scipy.optimize import minimize as sp_minimize
-import scipy.signal
-from  scipy.ndimage import center_of_mass
+
+
+
 
 FolderPath=''
 DataFile='Processed_spectrogram_cropped.pkl'
-Initial=1    
+Initial=0
 
 SNAP_exp=SNAP_experiment.SNAP()
 SNAP_exp.load_data(FolderPath+DataFile)
 SNAP_exp.plot_spectrogram()
-x_ERV,ERV_est,lambda_0=SNAP_exp.extract_ERV(0.5)
+x_ERV,ERV_est,_=SNAP_exp.extract_ERV(0.5)
 width_est=(x_ERV[-1]-x_ERV[0])/7
 ERV_max_est=np.nanmax(ERV_est)*0.5
 x_center=7310
+print(SNAP_exp.find_modes())
 if Initial:
-###################
+# ###################
     N=100
     x_num=np.linspace(min(SNAP_exp.x),max(SNAP_exp.x),N)
-    (absS,phaseS,ReD,ImD_exc,C2)=(0.9,-0.2,+2e-3,1e-3,3.7e-4)
+    (absS,phaseS,ReD,ImD_exc,C2)=(0.6,0.8,+1e-5,4e-4,1e-3)
     taper_params=(absS,phaseS,ReD,ImD_exc,C2)
     
     ERV_params=[width_est,ERV_max_est,0]
@@ -49,6 +48,7 @@ else:
 SNAP_num.plot_ERV() 
 fig_num=SNAP_num.plot_spectrogram()
 fig_num.axes[0].set_xlim((SNAP_exp.x[0],SNAP_exp.x[-1]))
+print(SNAP_num.find_modes())
 
 ################
 x_0=x_center
@@ -60,7 +60,7 @@ plt.plot(SNAP_exp.wavelengths,SNAP_exp.transmission[:,ind_exp])
 #
 ##########################
 ERV_f=SNAP_experiment.ERV_gauss
-res,ERV_params=SNAP_experiment.optimize_ERV_shape(ERV_f,ERV_params,x_center,x_num,lambda_0,
+res,ERV_params=SNAP_experiment.optimize_ERV_shape_by_modes(ERV_f,ERV_params,x_center,x_num,lambda_0,
                                                   taper_params,SNAP_exp,max_iter=50)
 # ############################################
 

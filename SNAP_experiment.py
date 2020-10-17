@@ -74,8 +74,8 @@ class SNAP():
         return x_ERV,ERV,lambda_0
 
     def find_modes(self):
-        data_shrinked=np.nanmin(self.transmission,axis=1)
-        mode_indexes,_=scipy.signal.find_peaks(abs(data_shrinked-np.mean(data_shrinked)),prominence=bn.nanstd(data_shrinked))
+        T_shrinked=np.nanmax(abs(self.transmission-np.nanmean(self.transmission,axis=0)),axis=1)
+        mode_indexes,_=scipy.signal.find_peaks(T_shrinked,prominence=3*bn.nanstd(T_shrinked))
         mode_wavelengths=np.sort(self.wavelengths[mode_indexes])
         mode_wavelengths=np.array([x for x in mode_wavelengths if x>self.lambda_0])
         self.mode_wavelengths=mode_wavelengths
@@ -155,7 +155,6 @@ def _difference_between_exp_and_num(x_exp,exp_data,x_num,num_data,lambdas):
 #    print(np.shape(exp_data),np.shape(f(x_exp,lambdas)))
 #    return signal.correlate(exp_data,np.reshape(f(x_exp,lambdas),-1))
     t=np.sum(abs(exp_data-(f(x_exp,lambdas))))    
-    print('difference is {}'.format(t))
     return t
 
 
@@ -187,7 +186,9 @@ def optimize_taper_params(x,ERV,wavelengths,lambda_0,init_taper_params,SNAP_exp,
         SNAP=SNAP_model.SNAP(x,ERV,wavelengths,lambda_0)
         SNAP.set_taper_params(absS,phaseS,ReD,ImD_exc,C)
         x,wavelengths,num_data=SNAP.derive_transmission()
-        return _difference_between_exp_and_num(x_exp,signal_exp,x,num_data,wavelengths)
+        t=_difference_between_exp_and_num(x_exp,signal_exp,x,num_data,wavelengths)
+        print('taper opt. delta_t is {}'.format(t))
+        return t
     
     x_exp,signal_exp=SNAP_exp.x,SNAP_exp.transmission
     options={}
@@ -198,16 +199,16 @@ def optimize_taper_params(x,ERV,wavelengths,lambda_0,init_taper_params,SNAP_exp,
     return res, taper_params
    
 
-
-def optimize_ERV_shape(ERV_f,initial_ERV_params,x_0_ERV,x,lambda_0,
+def optimize_ERV_shape_by_modes(ERV_f,initial_ERV_params,x_0_ERV,x,lambda_0,
                        taper_params,SNAP_exp,bounds=None,max_iter=20):
     
     def _difference_for_ERV_shape(ERV_params,*details):
-        ERV_f,x_0_ERV,x,wavelengths,lambda_0,taper_params,exp_modes=details
+        ERV_f,x_0_ERV,x,wavelengths,lambda_0,taper_params,SNAP_exp=details
+        exp_modes=SNAP_exp.find_modes()
         ERV_array=ERV_f(x,x_0_ERV,ERV_params)
         SNAP=SNAP_model.SNAP(x,ERV_array,wavelengths,lambda_0)
         SNAP.set_taper_params(*taper_params)
-        x,lambdas,num_data=SNAP.derive_transmission()
+        x_num,wavelengths,num_data=SNAP.derive_transmission()
         num_modes=SNAP.find_modes()
         N_num=len(num_modes)
         N_exp=len(exp_modes)
@@ -216,15 +217,39 @@ def optimize_ERV_shape(ERV_f,initial_ERV_params,x_0_ERV,x,lambda_0,
         elif N_exp>N_num:
             num_modes=np.sort(np.append(num_modes,lambda_0*np.ones((N_exp-N_num,1))))
         t=np.sum(abs(num_modes-exp_modes))
-        print('difference is {}'.format(t))
+        print('mode positions difference is {}'.format(t))
         return t
 
-    exp_modes=SNAP_exp.find_modes()
+
     wavelengths=SNAP_exp.wavelengths
     options={}
     options['maxiter']=max_iter  
     [absS,phaseS,ReD,ImD_exc,C]=taper_params # use current taper parameters as initial guess
-    res=sp_minimize(_difference_for_ERV_shape,initial_ERV_params,args=(ERV_f,x_0_ERV,x,wavelengths,lambda_0,taper_params,exp_modes),
+    res=sp_minimize(_difference_for_ERV_shape,initial_ERV_params,args=(ERV_f,x_0_ERV,x,wavelengths,lambda_0,taper_params,SNAP_exp),
+                    bounds=bounds,options=options,method='Nelder-Mead')
+    ERV_params=res.x
+    return res, ERV_params
+
+
+def optimize_ERV_shape_by_whole_transmission(ERV_f,initial_ERV_params,x_0_ERV,x,lambda_0,
+                       taper_params,SNAP_exp,bounds=None,max_iter=20):
+    
+    def _difference_for_ERV_shape(ERV_params,*details):
+        ERV_f,x_0_ERV,x,wavelengths,lambda_0,taper_params,SNAP_exp=details
+        ERV_array=ERV_f(x,x_0_ERV,ERV_params)
+        SNAP=SNAP_model.SNAP(x,ERV_array,wavelengths,lambda_0)
+        SNAP.set_taper_params(*taper_params)
+        x_num,wavelengths,num_data=SNAP.derive_transmission()
+        t=_difference_between_exp_and_num(SNAP_exp.x,SNAP_exp.transmission,x_num,num_data,wavelengths)
+        print('ERV opt, delta_t is {}'.format(t))
+        return t
+    
+
+    wavelengths=SNAP_exp.wavelengths
+    options={}
+    options['maxiter']=max_iter  
+    [absS,phaseS,ReD,ImD_exc,C]=taper_params # use current taper parameters as initial guess
+    res=sp_minimize(_difference_for_ERV_shape,initial_ERV_params,args=(ERV_f,x_0_ERV,x,wavelengths,lambda_0,taper_params,SNAP_exp),
                     bounds=bounds,options=options,method='Nelder-Mead')
     ERV_params=res.x
     return res, ERV_params

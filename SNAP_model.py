@@ -212,8 +212,8 @@ class SNAP():
     def find_modes(self):
         if self.need_to_update_transmission:
             self.derive_transmission()
-        T_shrinked=np.nanmin(self.transmission,axis=1)
-        mode_indexes,_=scipy.signal.find_peaks(abs(T_shrinked-np.mean(T_shrinked)))
+        T_shrinked=np.nanmax(abs(self.transmission-np.nanmean(self.transmission,axis=0)),axis=1)
+        mode_indexes,_=scipy.signal.find_peaks(T_shrinked,prominence=np.std(T_shrinked)*3)
         temp=np.sort(self.lambdas[mode_indexes])
         self.mode_wavelengths=np.array([x for x in temp if x>self.lambda_0])
         return self.mode_wavelengths
