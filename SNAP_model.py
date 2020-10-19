@@ -206,6 +206,7 @@ class SNAP():
         plt.title('simulation')
         if plot_ERV:
             ax_Radius.plot(self.x,self.ERV)
+            plt.gca().set_xlim((self.x[0],self.x[-1]))
         plt.tight_layout()
         return fig
     

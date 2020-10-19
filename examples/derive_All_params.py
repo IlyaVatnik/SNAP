@@ -6,6 +6,7 @@ Created on Sat Oct 17 23:29:57 2020
 """
 
 import numpy as np
+import json
 import matplotlib.pyplot as plt
 from SNAP import SNAP_model
 from SNAP import SNAP_experiment
@@ -24,7 +25,7 @@ fig_exp=SNAP_exp.plot_spectrogram()
 lambda_0=min(SNAP_exp.wavelengths)
 
 x_ERV,ERV_est,_=SNAP_exp.extract_ERV(0.5)
-width_est=(x_ERV[-1]-x_ERV[0])/5
+width_est=(x_ERV[-1]-x_ERV[0])/6
 ERV_max_est=np.nanmax(ERV_est)
 ERV_init_params=[width_est,ERV_max_est,0]
 
@@ -68,3 +69,8 @@ plt.plot(SNAP_exp.wavelengths,SNAP_exp.transmission[:,ind_exp])
 #
 print('ERV_params (width_est,ERV_max,K0)=',ERV_params)
 print('absS,phaseS,ReD,ImD_exc,C2=',taper_params)
+Dict={}
+Dict['ERV_params (width, height, background)']=ERV_params.tolist()
+Dict['taper_params (absS, phaseS, ReD, ImD_exc, C2)']=taper_params.tolist()
+with open('Results.txt','w') as f:
+    json.dump(Dict,f)
