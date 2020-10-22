@@ -17,7 +17,7 @@ Total_iterations_from_ERV_to_taper=5
 max_iter=30
 x_center=312
 taper_params=(0.6,-0.5,+1e-5,4e-4,1e-3) # initial  (absS,phaseS,ReD,ImD_exc,C2)
-taper_params_bounds=((0.5,1),(-1,1),(-1e-3,1e-3),(0,1e-1),(0,1e-1)) #bounds for  (absS,phaseS,ReD,ImD_exc,C2)
+taper_params_bounds=((0.5,1),(-1,1),(-3e-3,3e-3),(0,1e-1),(0,1e-1)) #bounds for  (absS,phaseS,ReD,ImD_exc,C2)
 
 SNAP_exp=SNAP_experiment.SNAP()
 SNAP_exp.load_data(FolderPath+DataFile)
@@ -63,14 +63,15 @@ SNAP_num.plot_spectrogram(plot_ERV=True)
 plt.show()
 plt.savefig('Final numerical spectrogram.png')
 
-x_0=x_center
+x_0=x_center-ERV_params[0]/2
 waves,T=SNAP_num.get_spectrum(x_0)
 plt.figure(45)
+plt.clf()
 plt.plot(waves,T)
 ind_exp=np.argmin(abs(SNAP_exp.x-x_0))
 plt.plot(SNAP_exp.wavelengths,SNAP_exp.transmission[:,ind_exp])
 plt.xlabel('Wavelength,nm')
-plt.xlabel('Transmission')
+plt.ylabel('Transmission')
 plt.savefig('Single spectrum comparison at x={}.png'.format(x_0))
 #
 print('ERV_params (width_est,ERV_max,K0)=',ERV_params)
@@ -78,5 +79,6 @@ print('absS,phaseS,ReD,ImD_exc,C2=',taper_params)
 Dict={}
 Dict['ERV_params (width, height, background)']=ERV_params.tolist()
 Dict['taper_params (absS, phaseS, ReD, ImD_exc, C2)']=taper_params.tolist()
+Dict['minimum ImD,Critical coupling C2']=[SNAP_num.critical_Csquared(),SNAP_num.min_imag_D()]
 with open('Results.txt','w') as f:
     json.dump(Dict,f)
