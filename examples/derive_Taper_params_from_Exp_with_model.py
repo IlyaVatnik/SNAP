@@ -12,7 +12,7 @@ from SNAP import SNAP_experiment
 
 FolderPath=''
 DataFile='Processed_spectrogram_cropped.pkl'
-Initial=0
+Initial=1
     
 
 SNAP_exp=SNAP_experiment.SNAP()
@@ -28,8 +28,8 @@ if Initial:
     x_num=np.linspace(min(SNAP_exp.x),max(SNAP_exp.x),N)
     (absS,phaseS,ReD,ImD_exc,C2)=(0.6,0.8,+1e-5,4e-4,1e-3)
     taper_params=(absS,phaseS,ReD,ImD_exc,C2)
-    
-    ERV_params=[5.70936663e+01,  5.89798060e+00, -1.14857411e-04]
+    ERV_params=[47.95053748900153, 1.3738551351301718, -0.0004922718355842343]
+    # ERV_params=[5.70936663e+01,  5.89798060e+00, -1.14857411e-04]
     ERV=SNAP_experiment.ERV_gauss(x_num,x_center,ERV_params)
     lambda_0=1550.775
     

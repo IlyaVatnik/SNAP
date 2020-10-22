@@ -15,19 +15,21 @@ FolderPath=''
 DataFile='Processed_spectrogram_cropped.pkl'
 Total_iterations_from_ERV_to_taper=5
 max_iter=30
-x_center=7310
-taper_params=(0.6,0.8,+1e-5,4e-4,1e-3) # initial  (absS,phaseS,ReD,ImD_exc,C2)
-taper_params_bounds=((0.5,0.9),(0.5,1),(-1e-4,1e-4),(0,1e-2),(0,1e-2)) #bounds for  (absS,phaseS,ReD,ImD_exc,C2)
+x_center=312
+taper_params=(0.6,-0.5,+1e-5,4e-4,1e-3) # initial  (absS,phaseS,ReD,ImD_exc,C2)
+taper_params_bounds=((0.5,1),(-1,1),(-1e-3,1e-3),(0,1e-1),(0,1e-1)) #bounds for  (absS,phaseS,ReD,ImD_exc,C2)
 
 SNAP_exp=SNAP_experiment.SNAP()
 SNAP_exp.load_data(FolderPath+DataFile)
-fig_exp=SNAP_exp.plot_spectrogram()
+SNAP_exp.plot_spectrogram()
+plt.savefig('Experimental spectrogram.png')
 lambda_0=min(SNAP_exp.wavelengths)
 
-x_ERV,ERV_est,_=SNAP_exp.extract_ERV(0.5)
+x_ERV,ERV_est,_=SNAP_exp.extract_ERV(0.2)
 width_est=(x_ERV[-1]-x_ERV[0])/6
 ERV_max_est=np.nanmax(ERV_est)
 ERV_init_params=[width_est,ERV_max_est,0]
+
 
 N=100
 x_num=np.linspace(min(SNAP_exp.x),max(SNAP_exp.x),N)
@@ -59,6 +61,7 @@ SNAP_num.set_taper_params(*taper_params)
 SNAP_num.ERV_params=ERV_params
 SNAP_num.plot_spectrogram(plot_ERV=True)
 plt.show()
+plt.savefig('Final numerical spectrogram.png')
 
 x_0=x_center
 waves,T=SNAP_num.get_spectrum(x_0)
@@ -66,6 +69,9 @@ plt.figure(45)
 plt.plot(waves,T)
 ind_exp=np.argmin(abs(SNAP_exp.x-x_0))
 plt.plot(SNAP_exp.wavelengths,SNAP_exp.transmission[:,ind_exp])
+plt.xlabel('Wavelength,nm')
+plt.xlabel('Transmission')
+plt.savefig('Single spectrum comparison at x={}.png'.format(x_0))
 #
 print('ERV_params (width_est,ERV_max,K0)=',ERV_params)
 print('absS,phaseS,ReD,ImD_exc,C2=',taper_params)

@@ -15,26 +15,26 @@ from SNAP import SNAP_experiment
 
 FolderPath=''
 DataFile='Processed_spectrogram_cropped.pkl'
-Initial=0
+Initial=1
 
 SNAP_exp=SNAP_experiment.SNAP()
 SNAP_exp.load_data(FolderPath+DataFile)
 SNAP_exp.plot_spectrogram()
-x_ERV,ERV_est,_=SNAP_exp.extract_ERV(0.5)
+x_ERV,ERV_est,_=SNAP_exp.extract_ERV(0.2)
 width_est=(x_ERV[-1]-x_ERV[0])/7
-ERV_max_est=np.nanmax(ERV_est)*0.5
-x_center=7310
+ERV_max_est=np.nanmax(ERV_est)
+x_center=312
 print(SNAP_exp.find_modes())
 if Initial:
 # ###################
     N=100
     x_num=np.linspace(min(SNAP_exp.x),max(SNAP_exp.x),N)
-    (absS,phaseS,ReD,ImD_exc,C2)=(0.6,0.8,+1e-5,4e-4,1e-3)
+    (absS,phaseS,ReD,ImD_exc,C2)=(0.6,0.5,+1e-5,4e-4,1e-3)
     taper_params=(absS,phaseS,ReD,ImD_exc,C2)
     
     ERV_params=[width_est,ERV_max_est,0]
     ERV=SNAP_experiment.ERV_gauss(x_num,x_center,ERV_params)
-    lambda_0=1550.775
+    lambda_0=1547.49
     SNAP_num=SNAP_model.SNAP(x_num,ERV,SNAP_exp.wavelengths,lambda_0)
     SNAP_num.set_taper_params(*taper_params)
 # # ######################

@@ -117,7 +117,7 @@ class SNAP():
         self.fig_spectrogram=fig
         return fig
     
-    def extract_ERV(self,MinimumPeakDepth,MinWavelength=0,MaxWavelength=1e4):
+    def extract_ERV(self,MinimumPeakDepth,MinWavelength=0,MaxWavelength=1e4, indicate_ERV_on_spectrogram=False):
         global R_0
         NumberOfWavelength,Number_of_positions = self.transmission.shape
         LineWidthArray=np.zeros(Number_of_positions)
@@ -131,7 +131,7 @@ class SNAP():
         LineWidthArray=[]
         Pos=[]
         for Zind, Z in enumerate(range(0,Number_of_positions)):
-            peakind,_=scipy.signal.find_peaks(1-self.transmission[:,Zind],height=MinimumPeakDepth)
+            peakind,_=scipy.signal.find_peaks(abs(self.transmission[:,Zind]-np.nanmean(self.transmission[:,Zind])),height=MinimumPeakDepth)
             NewPeakind=np.extract((WavelengthArray[peakind]>MinWavelength) & (WavelengthArray[peakind]<MaxWavelength),peakind)
             NewPeakind=NewPeakind[np.argsort(-WavelengthArray[NewPeakind])] ##sort in wavelength decreasing
             
@@ -143,7 +143,7 @@ class SNAP():
         lambda_0=np.nanmin(PeakWavelengthArray)
         ERV=(PeakWavelengthArray-lambda_0)/np.nanmean(PeakWavelengthArray)*R_0*1e3
         
-        if self.fig_spectrogram is not None:
+        if self.fig_spectrogram is not None and indicate_ERV_on_spectrogram:
             self.fig_spectrogram.axes[0].pcolormesh(Positions,WavelengthArray,PeakWavelengthMatrix)
         return np.array(Pos),ERV,np.array(LineWidthArray)
         
