@@ -73,9 +73,9 @@ class SNAP():
             ERV=f(x_ERV)
         return x_ERV,ERV,lambda_0
 
-    def find_modes(self):
-        T_shrinked=np.nanmax(abs(self.transmission-np.nanmean(self.transmission,axis=0)),axis=1)
-        mode_indexes,_=scipy.signal.find_peaks(T_shrinked,prominence=3*bn.nanstd(T_shrinked))
+    def find_modes(self,prominence_factor=2):
+        T_shrinked=np.nanmean(abs(self.transmission-np.nanmean(self.transmission,axis=0)),axis=1)
+        mode_indexes,_=scipy.signal.find_peaks(T_shrinked,prominence=prominence_factor*bn.nanstd(T_shrinked))
         mode_wavelengths=np.sort(self.wavelengths[mode_indexes])
         mode_wavelengths=np.array([x for x in mode_wavelengths if x>self.lambda_0])
         self.mode_wavelengths=mode_wavelengths
@@ -151,10 +151,10 @@ class SNAP():
 
 
 def _difference_between_exp_and_num(x_exp,exp_data,x_num,num_data,lambdas):
-    f = interpolate.interp2d(x_num, lambdas, num_data, kind='cubic')
+    f = interpolate.interp2d(x_num, lambdas, num_data, kind='quintic')
 #    print(np.shape(exp_data),np.shape(f(x_exp,lambdas)))
 #    return signal.correlate(exp_data,np.reshape(f(x_exp,lambdas),-1))
-    t=np.sum(abs(exp_data-(f(x_exp,lambdas))))    
+    t=np.sum((exp_data-(f(x_exp,lambdas)))**2)    
     return t
 
 

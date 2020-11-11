@@ -190,7 +190,7 @@ class SNAP():
             ax_Radius.set_ylim(nY1, nY2)
         if self.need_to_update_transmission:
             self.derive_transmission()
-        fig=plt.figure(1)
+        fig=plt.figure()
         plt.clf()
         ax_Wavelengths = fig.subplots()
         ax_Radius = ax_Wavelengths.twinx()
@@ -210,11 +210,11 @@ class SNAP():
         plt.tight_layout()
         return fig
     
-    def find_modes(self):
+    def find_modes(self,prominence_factor=3):
         if self.need_to_update_transmission:
             self.derive_transmission()
-        T_shrinked=np.nanmax(abs(self.transmission-np.nanmean(self.transmission,axis=0)),axis=1)
-        mode_indexes,_=scipy.signal.find_peaks(T_shrinked,prominence=np.std(T_shrinked)*3)
+        T_shrinked=np.nanmean(abs(self.transmission-np.nanmean(self.transmission,axis=0)),axis=1)
+        mode_indexes,_=scipy.signal.find_peaks(T_shrinked,prominence=np.std(T_shrinked)*prominence_factor)
         temp=np.sort(self.lambdas[mode_indexes])
         self.mode_wavelengths=np.array([x for x in temp if x>self.lambda_0])
         return self.mode_wavelengths
