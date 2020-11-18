@@ -28,30 +28,30 @@ class SNAP():
 
     
     def __init__(self,x=None,ERV=None,Wavelengths=None,lambda_0=1550,taper_absS=0.9,taper_phaseS=0,taper_ReD=0.0002,taper_ImD_exc=1e-4,taper_Csquared=1e-2,
-                 res_width=1e-7,R_0=62.5,n=1.45): # Note that x is in microns!
+                 res_width=1e-4,R_0=62.5,n=1.45): # Note that x is in microns!
         if x is not None:
-            self.ERV=ERV
-            self.x=x
+            self.ERV=ERV # nm
+            self.x=x  # mkm
             self.N=len(x)
         
-        self.res_width=res_width    # in nm, resonance width corresponding to inner losses of resonator
-        self.R_0=R_0                  ## Fiber radius, in um 
+        self.res_width=res_width    # nm, resonance linewidth corresponding to inner losses of resonator
+        self.R_0=R_0                  ## mkm, Fiber radius
         self.n=n                 ## Cladding refractive index
         
-        self.lambda_0=lambda_0
-        self.k0=2*np.pi*self.n/(self.lambda_0*1e-3) # in 1/um
-        self.Res_Width=(8*np.pi**2*self.n**2/(self.lambda_0*1e-3)**3)*self.res_width
+        self.lambda_0=lambda_0  # nm, resonance wavelength for the undisturbed cylinder
+        self.k0=2*np.pi*self.n/(self.lambda_0*1e-3) # in 1/mkm
+        self.res_width_norm=(8*np.pi**2*self.n**2/(self.lambda_0*1e-3)**3)*self.res_width*1e-3
         
         
         self.transmission=None
         self.lambdas=Wavelengths
         self.need_to_update_transmission=True
         
-        self.taper_absS=taper_absS
+        self.taper_absS=taper_absS  
         self.taper_phaseS=taper_phaseS
-        self.taper_Csquared=taper_Csquared
-        self.taper_ReD=taper_ReD
-        self.taper_ImD_exc=taper_ImD_exc
+        self.taper_Csquared=taper_Csquared # 1/mkm
+        self.taper_ReD=taper_ReD # 1/mkm
+        self.taper_ImD_exc=taper_ImD_exc # 1/mkm
         
         self.Cmap='jet'
         
@@ -70,14 +70,7 @@ class SNAP():
     def get_fiber_params(self,**a):
         return self.res_width,self.R_0,self.n
             
-    def min_imag_D(self):
-        taper_ReS=self.taper_absS*np.cos(self.taper_phaseS)
-        return self.taper_Csquared*(1-taper_ReS)/(1-self.taper_absS**2)
-    
-    def critical_Csquared(self):
-        taper_ReS=self.taper_absS*np.cos(self.taper_phaseS)
-        taper_ImD=self.taper_ImD_exc+self.min_imag_D()
-        return abs(self.taper_absS)**2*taper_ImD/taper_ReS
+
     
     def set_taper_params(self,absS=None,phaseS=None,ReD=None,ImD_exc=None,Csquared=None):
         if absS is not None:
@@ -101,11 +94,18 @@ class SNAP():
             self.taper_ImD_exc=ImD_exc
             self.need_to_update_transmission=True    
         
-               
-
-            
+          
     def get_taper_params(self):
         return self.taper_absS,self.taper_phaseS,self.taper_ReD,self.taper_ImD_exc,self.taper_Csquared
+    
+    def min_imag_D(self):
+        taper_ReS=self.taper_absS*np.cos(self.taper_phaseS*np.pi)
+        return self.taper_Csquared*(1-taper_ReS)/(1-self.taper_absS**2)
+    
+    def critical_Csquared(self):
+        taper_ReS=self.taper_absS*np.cos(self.taper_phaseS)
+        taper_ImD=self.taper_ImD_exc+self.min_imag_D()
+        return self.taper_absS**2*taper_ImD/taper_ReS
     
     def D(self):
         return self.taper_ReD+1j*(self.taper_ImD_exc+self.min_imag_D())
@@ -124,26 +124,12 @@ class SNAP():
         (eigvals,eigvecs)=la.eigh(Hmtx,check_finite=False)
         sorted_indexes=np.argsort(np.real(eigvals))
         eigvals,eigvecs=[eigvals[sorted_indexes],eigvecs[sorted_indexes]]
+        eigvecs=eigvecs/np.sqrt(dx)  # to get normalization for integral (psi**2 dx) =1
         return eigvals,eigvecs
     
-#    def find_localized_modes(self):
-#        eigvals,eigvecs=self.solve_Shrodinger()
-#        x_central=np.sum(self.x*self.U)/np.sum(self.U)
-#        width_U=np.sqrt(np.sum((self.x-x_central)**2 * (self.U-np.mean(self.U))**2)/np.sum((self.U-np.mean(self.U))**2))
-##        print(width_U)
-#        widths=np.array([np.sqrt(np.sum((self.x-x_central)**2 * (wave-np.mean(wave))**2)/np.sum((wave-np.mean(wave))**2)) for wave in abs(eigvecs)])
-##        print(widths)
-#        indexes=np.argwhere(widths<width_U)
-##        print(indexes)
-#        eigvals,eigvecs,widths=eigvals[indexes],eigvecs[indexes],widths[indexes]
-#        sorted_indexes=np.argsort(np.real(eigvals))
-#        eigvals,eigvecs,widths=eigvals[sorted_indexes],eigvecs[sorted_indexes],widths[sorted_indexes]
-#        return eigvals,eigvecs,widths
-    
     def GreenFunction(self,eigvals,eigvecs,wavelength):
-        E=-2*self.k0**2*(wavelength-self.lambda_0-1j*self.res_width*1e3)/self.lambda_0
-        return bn.nansum(eigvecs*np.conjugate(eigvecs)/(E-eigvals+1j*self.Res_Width),1)
-#        return bn.nansum(eigvecs*np.conjugate(eigvecs)/eigvals,1)
+        E=-2*self.k0**2*(wavelength-self.lambda_0)/self.lambda_0
+        return bn.nansum(eigvecs**2/(E-eigvals+1j*self.res_width_norm),1) 
         
     
     def derive_transmission(self,show_progress=False):
@@ -170,15 +156,19 @@ class SNAP():
         return self.lambdas,self.transmission[:,i]
     
      
-    def plot_spectrum(self,x):
+    def plot_spectrum(self,x,scale='lin'):
         w,l=self.get_spectrum(x)
         fig=plt.figure(3)
-        plt.plot(w,l)
-        plt.xlabel('Wavelength,nm')
-        plt.ylabel('Transmission')
+        if scale=='lin':
+            plt.plot(w,l)
+            plt.ylabel('Transmission')
+        elif scale=='log':
+            plt.plot(w,np.log(l))
+            plt.ylabel('Transmission, dB')
+        plt.xlabel('Wavelength,nm')     
         return fig
     
-    def plot_spectrogram(self,plot_ERV=False):
+    def plot_spectrogram(self,scale='lin',ERV_axis=True,plot_ERV=False,):
         wave_max=max(self.lambdas)
         def _convert_ax_Wavelength_to_Radius(ax_Wavelengths):
             """
@@ -193,16 +183,24 @@ class SNAP():
         fig=plt.figure()
         plt.clf()
         ax_Wavelengths = fig.subplots()
-        ax_Radius = ax_Wavelengths.twinx()
-        ax_Wavelengths.callbacks.connect("ylim_changed", _convert_ax_Wavelength_to_Radius)
+        if scale=='lin':
+            temp=self.transmission
+        elif scale=='log':
+            temp=np.log(self.transmission)
         try:
-            im = ax_Wavelengths.pcolorfast(self.x,self.lambdas,self.transmission,cmap=self.Cmap)
+            im = ax_Wavelengths.pcolorfast(self.x,self.lambdas,temp,cmap=self.Cmap)
         except:
-            im = ax_Wavelengths.pcolor(self.x,self.lambdas,self.transmission, cmap=self.Cmap)
-        plt.colorbar(im,ax=ax_Radius,pad=0.12)
+            im = ax_Wavelengths.pcolor(self.x,self.lambdas,temp, cmap=self.Cmap)
+        if scale=='lin':
+            plt.colorbar(im,ax=ax_Wavelengths,pad=0.12,label='Transmission')
+        elif scale=='log':
+            plt.colorbar(im,ax=ax_Wavelengths,pad=0.12,label='Transmission,dB')                
         ax_Wavelengths.set_xlabel(r'Position, $\mu$m')
         ax_Wavelengths.set_ylabel('Wavelength, nm')
-        ax_Radius.set_ylabel('Variation, nm')
+        if ERV_axis:
+            ax_Radius = ax_Wavelengths.twinx()
+            ax_Wavelengths.callbacks.connect("ylim_changed", _convert_ax_Wavelength_to_Radius)
+            ax_Radius.set_ylabel('Variation, nm')
         plt.title('simulation')
         if plot_ERV:
             ax_Radius.plot(self.x,self.ERV)
@@ -238,28 +236,37 @@ class SNAP():
 if __name__=='__main__':
 
     
-    N=300
-    wave_min,wave_max,res=1549.98,1550.07, 3e-4
+    N=400
+    lambda_0=1552.21
+    wave_min,wave_max,res=1552.2,1552.6, 3e-4
     
-    x=np.linspace(-700,700,N)
+    x=np.linspace(-250,250,N)
     lambda_array=np.arange(wave_min,wave_max,res)
     
+    A=3.274
+    sigma=123.5934
+    p=1.1406
     def ERV(x):
-        if abs(x)<=200:
+        # if abs(x)<=200:
 #            return (x)**2
-            return 2
-        else:
-            return 0
+        return A*np.exp(-(x**2/2/sigma**2)**p)
+        # else:
+            # return 0
 #            return ERV(5)-1/2*(x)**2
     ERV=np.array(list(map(ERV,x)))
     
-    SNAP=SNAP(x,ERV,lambda_array,lambda_0=1550)
-    SNAP.set_taper_params(absS=0.7,phaseS=0.05,ReD=0.0002,ImD_exc=1e-4,Csquared=1e-4)
-    SNAP.plot_spectrogram(plot_ERV=True)
-    SNAP.plot_ERV()
-    SNAP.plot_spectrum(0)
-    print(SNAP.find_modes())
+    SNAP=SNAP(x,ERV,lambda_array,lambda_0=lambda_0,res_width=1e-4,R_0=38/2)
+    SNAP.set_taper_params(absS=np.sqrt(0.8),phaseS=-0.05,ReD=0.025,ImD_exc=0.9e-2,Csquared=0.03)
+    SNAP.plot_spectrogram(plot_ERV=False,scale='log')
+    plt.gcf().axes[0].set_ylim((1552.46,1552.5))
+    plt.xlim((-150,150))
+    # SNAP.plot_ERV()
+    SNAP.plot_spectrum(82,scale='log')
+    # plt.xlim((1552.46,1552.5))
+    # print(SNAP.find_modes())
+    print(SNAP.critical_Csquared())
     # SNAP.save()
+    
     
         
     

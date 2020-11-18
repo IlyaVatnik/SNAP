@@ -12,11 +12,11 @@ from SNAP import SNAP_model
 from SNAP import SNAP_experiment
 
 FolderPath=''
-DataFile='Processed_spectrogram_cropped.pkl'
+DataFile='Processed_spectrogram 1527_cropped_cropped.pkl'
 Total_iterations_from_ERV_to_taper=5
 max_iter=30
-x_center=312
-taper_params=(0.6,-0.5,+1e-5,4e-4,1e-3) # initial  (absS,phaseS,ReD,ImD_exc,C2)
+x_center=507
+taper_params=(0.78,-0.5,+2e-3,4e-4,5e-4) # initial  (absS,phaseS,ReD,ImD_exc,C2)
 taper_params_bounds=((0.5,1),(-1,1),(-3e-3,3e-3),(0,1e-1),(0,1e-1)) #bounds for  (absS,phaseS,ReD,ImD_exc,C2)
 
 SNAP_exp=SNAP_experiment.SNAP()
