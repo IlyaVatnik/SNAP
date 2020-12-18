@@ -40,8 +40,8 @@ class SNAP():
         
         self.lambda_0=lambda_0  # nm, resonance wavelength for the undisturbed cylinder
         self.k0=2*np.pi*self.n/(self.lambda_0*1e-3) # in 1/mkm
-        self.res_width_norm=(8*np.pi**2*self.n**2/(self.lambda_0*1e-3)**3)*self.res_width*1e-3
-        
+        self.res_width_norm=8*np.pi**2*self.n**2/(self.lambda_0*1e-3)**3*self.res_width*1e-3
+
         
         self.transmission=None
         self.lambdas=Wavelengths
@@ -74,7 +74,7 @@ class SNAP():
     
     def set_taper_params(self,absS=None,phaseS=None,ReD=None,ImD_exc=None,Csquared=None):
         if absS is not None:
-            if absS>=1:
+            if absS>1:
                 print('abs(S_0) cannot be larger then 1! S_0 is kept to {}'.format(self.taper_absS))
             else:
                 self.taper_absS=absS
@@ -107,8 +107,28 @@ class SNAP():
         taper_ImD=self.taper_ImD_exc+self.min_imag_D()
         return self.taper_absS**2*taper_ImD/taper_ReS
     
+    def critical_Csquared_1(self,x_0,number_of_level=0):
+        U=-2*self.k0**2*self.ERV*(1e-3)/self.R_0
+        _,eigvecs=self.solve_Shrodinger(U)
+        i=np.argmin(abs(self.x-x_0))
+        num=np.imag(self.S()*self.complex_D_exc())+self.res_width_norm/eigvecs[number_of_level,i]**2
+        
+        taper_ReS=self.taper_absS*np.cos(self.taper_phaseS*np.pi)
+        denum=1-taper_ReS*(1-taper_ReS)/(1-self.taper_absS**2)
+        return num/denum
+    
+    
+    def critical_Csquared_2(self):
+        taper_ReS=self.taper_absS*np.cos(self.taper_phaseS)
+        return self.taper_ImD_exc*self.taper_absS**2*(1-self.taper_absS**2)/(taper_ReS-self.taper_absS**2)
+        
+    
+    
     def D(self):
         return self.taper_ReD+1j*(self.taper_ImD_exc+self.min_imag_D())
+    
+    def complex_D_exc(self):
+        return self.taper_ReD+1j*(self.taper_ImD_exc)
     
     def S(self):
         return self.taper_absS*np.exp(1j*self.taper_phaseS*np.pi)
@@ -142,12 +162,30 @@ class SNAP():
             if ii%50==0 and show_progress: print('Deriving T for wl={}, {} of {}'.format(wavelength,ii,len(self.lambdas)))
             G=self.GreenFunction(eigvals,eigvecs,wavelength)
             ComplexTransmission=(taper_S-1j*self.taper_Csquared*G/(1+taper_D*G))  ## 
-            T[ii,:]=abs(ComplexTransmission)**2
-        
+            T[ii,:]=abs(ComplexTransmission)**2 
         self.need_to_update_transmission=False
         self.transmission=T
-        
+        if np.amax(T)>1:
+            print('Some error in the algorimth! Transmission became larger than 1')
         return self.x, self.lambdas,self.transmission
+    
+# =============================================================================
+#     This function is just for debugging
+# =============================================================================
+    def _derive_transmission_test(self,psi_function):
+        taper_D=self.D()
+        taper_S=self.S()
+        T=np.zeros((len(self.lambdas),len(self.x)))
+        for ii,wavelength in enumerate(self.lambdas):
+            E=-2*self.k0**2*(wavelength-self.lambda_0)/self.lambda_0
+            G=psi_function**2/(E+1j*self.res_width_norm) 
+            ComplexTransmission=(taper_S-1j*self.taper_Csquared*G/(1+taper_D*G))  ## 
+            T[ii,:]=abs(ComplexTransmission)
+        self.transmission=T
+        if np.amax(T)>1:
+            print('Some error in the algorimth! Transmission became larger than 1')
+        return self.x, self.lambdas,self.transmission
+    
     
     def get_spectrum(self,x):
         if self.need_to_update_transmission:
@@ -163,12 +201,12 @@ class SNAP():
             plt.plot(w,l)
             plt.ylabel('Transmission')
         elif scale=='log':
-            plt.plot(w,np.log(l))
+            plt.plot(w,np.log10(l))
             plt.ylabel('Transmission, dB')
         plt.xlabel('Wavelength,nm')     
         return fig
     
-    def plot_spectrogram(self,scale='lin',ERV_axis=True,plot_ERV=False,):
+    def plot_spectrogram(self,scale='lin',ERV_axis=True,plot_ERV=False,amplitude=False):
         wave_max=max(self.lambdas)
         def _convert_ax_Wavelength_to_Radius(ax_Wavelengths):
             """
@@ -183,10 +221,12 @@ class SNAP():
         fig=plt.figure()
         plt.clf()
         ax_Wavelengths = fig.subplots()
-        if scale=='lin':
+        if amplitude:
+            temp=np.sqrt(self.transmission)
+        else:
             temp=self.transmission
-        elif scale=='log':
-            temp=np.log(self.transmission)
+        if scale=='log':
+            temp=np.log10(temp)
         try:
             im = ax_Wavelengths.pcolorfast(self.x,self.lambdas,temp,cmap=self.Cmap)
         except:
@@ -236,32 +276,31 @@ class SNAP():
 if __name__=='__main__':
 
     
-    N=400
+    N=500
     lambda_0=1552.21
-    wave_min,wave_max,res=1552.2,1552.6, 3e-4
+    wave_min,wave_max,res=1552.18,1552.4664, 1e-4
     
-    x=np.linspace(-250,250,N)
+    x=np.linspace(-650,650,N)
     lambda_array=np.arange(wave_min,wave_max,res)
     
-    A=3.274
-    sigma=123.5934
+    A=3
+    sigma=60.5934
     p=1.1406
     def ERV(x):
         # if abs(x)<=200:
 #            return (x)**2
-        return A*np.exp(-(x**2/2/sigma**2)**p)
+        return A*np.exp(-(x**2/2/sigma**2)**p)-0.5*A*np.exp(-(x**2/2/(sigma*1.2)**2)**p)
         # else:
             # return 0
 #            return ERV(5)-1/2*(x)**2
     ERV=np.array(list(map(ERV,x)))
     
-    SNAP=SNAP(x,ERV,lambda_array,lambda_0=lambda_0,res_width=1e-4,R_0=38/2)
-    SNAP.set_taper_params(absS=np.sqrt(0.8),phaseS=-0.05,ReD=0.025,ImD_exc=0.9e-2,Csquared=0.03)
-    SNAP.plot_spectrogram(plot_ERV=False,scale='log')
-    plt.gcf().axes[0].set_ylim((1552.46,1552.5))
-    plt.xlim((-150,150))
-    # SNAP.plot_ERV()
-    SNAP.plot_spectrum(82,scale='log')
+    SNAP=SNAP(x,ERV,lambda_array,lambda_0=lambda_0,res_width=1e-4,R_0=62.5)
+    SNAP.set_taper_params(absS=np.sqrt(0.8),phaseS=0.0,ReD=0.00,ImD_exc=2e-3,Csquared=0.001)
+    SNAP.plot_spectrogram(plot_ERV=True,scale='log')
+    # plt.xlim((-150,150))
+    SNAP.plot_ERV()
+    SNAP.plot_spectrum(0,scale='log')
     # plt.xlim((1552.46,1552.5))
     # print(SNAP.find_modes())
     print(SNAP.critical_Csquared())

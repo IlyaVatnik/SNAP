@@ -4,11 +4,12 @@ Created on Fri Sep 25 16:30:03 2020
 
 @author: Ilya Vatnik
 
-v.1 
+v.1.1
 """
 
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib
 from . import SNAP_model
 import pickle
 import bottleneck as bn
@@ -17,14 +18,16 @@ from scipy.optimize import minimize as sp_minimize
 import scipy.signal
 from  scipy.ndimage import center_of_mass
 
-R_0=62.5
-Cmap='jet'
+
 
 class SNAP():
-    def __init__(self,x=None,
+    def __init__(self,file=None,
+                 x=None,
                  wavelengths=None,
-                 transmission=None):
-   
+                 transmission=None,
+                 R_0=62.5):
+        
+        self.R_0=62.5
         self.x=x
         self.wavelengths=wavelengths
         self.transmission=transmission
@@ -38,7 +41,10 @@ class SNAP():
             
         self.fig_spectrogram=None
         
- 
+        if file is not None:
+            self.load_data(file)
+            self.transmission_scale='log'
+        
     def load_data(self,file_name):
         number_of_axis={'X':0,'Y':1,'Z':2,'W':3,'p':4}
     
@@ -49,7 +55,6 @@ class SNAP():
         axis=D['axis']
         Positions=np.array(D['Positions'])
         wavelengths,exp_data=D['Wavelengths'],D['Signal']
-        exp_data=10**((exp_data-np.max(exp_data))/10)
         x=Positions[:,number_of_axis[axis]]*2.5
         
         self.x=x
@@ -58,6 +63,10 @@ class SNAP():
         
         self.lambda_0=np.min(wavelengths)
         return x,wavelengths,exp_data
+    
+    def convert_to_lin_transmission(self):
+        self.transmission_scale='lin'
+        self.transmission=10**((self.transmission-np.max(self.transmission))/10)
     
     def load_ERV_estimation(self,file_name):
         global R_0
@@ -88,31 +97,40 @@ class SNAP():
         t_f=np.sum(self.transmission[ind-2:ind+2,:],axis=0)
         return (np.sum(t_f*self.x)/np.sum(t_f))
 
-    def plot_spectrogram(self):
+    def plot_spectrogram(self,font_size=11,title=True,vmin=None,vmax=None,cmap='jet',language='eng'):
         w_0=np.mean(self.wavelengths)
         def _convert_ax_Wavelength_to_Radius(ax_Wavelengths):
             """
             Update second axis according with first axis.
             """
             y1, y2 = ax_Wavelengths.get_ylim()
-            nY1=(y1-self.lambda_0)/w_0*R_0*1e3
-            nY2=(y2-self.lambda_0)/w_0*R_0*1e3
+            nY1=(y1-self.lambda_0)/w_0*self.R_0*1e3
+            nY2=(y2-self.lambda_0)/w_0*self.R_0*1e3
             ax_Radius.set_ylim(nY1, nY2)
     
-        fig=plt.figure(10)
+        fig=plt.figure()
         plt.clf()
+        matplotlib.rcParams.update({'font.size': font_size})
         ax_Wavelengths = fig.subplots()
         ax_Radius = ax_Wavelengths.twinx()
         ax_Wavelengths.callbacks.connect("ylim_changed", _convert_ax_Wavelength_to_Radius)
         try:
-            im = ax_Wavelengths.pcolorfast(self.x,self.wavelengths,self.transmission,cmap=Cmap)
+            im = ax_Wavelengths.pcolorfast(self.x,self.wavelengths,self.transmission,cmap=cmap,vmin=vmin,vmax=vmax)
         except:
-            im = ax_Wavelengths.contourf(self.x,self.wavelengths,self.transmission,cmap=Cmap)
+            im = ax_Wavelengths.contourf(self.x,self.wavelengths,self.transmission,cmap=cmap,vmin=vmin,vmax=vmax)
         plt.colorbar(im,ax=ax_Radius,pad=0.12)
-        ax_Wavelengths.set_xlabel(r'Position, $\mu$m')
-        ax_Wavelengths.set_ylabel('Wavelength, nm')
-        ax_Radius.set_ylabel('Variation, nm')
-        plt.title('experiment')
+        if language=='eng':
+            ax_Wavelengths.set_xlabel(r'Position, $\mu$m')
+            ax_Wavelengths.set_ylabel('Wavelength, nm')
+            ax_Radius.set_ylabel('Variation, nm')
+            if title:
+                plt.title('experiment')
+        elif language=='ru':
+            ax_Wavelengths.set_xlabel('Расстояние, мкм')
+            ax_Wavelengths.set_ylabel('Длина волны, нм')
+            ax_Radius.set_ylabel('Вариация радиуса, нм')
+            if title:
+                plt.title('эксперимент')
         plt.tight_layout()
         self.fig_spectrogram=fig
         return fig
@@ -140,8 +158,8 @@ class SNAP():
                 PeakWavelengthMatrix[NewPeakind[0],Zind]=-self.transmission[NewPeakind[0],Zind]
                 Pos.append(Positions[Zind])
                 
-        lambda_0=np.nanmin(PeakWavelengthArray)
-        ERV=(PeakWavelengthArray-lambda_0)/np.nanmean(PeakWavelengthArray)*R_0*1e3
+        lambda_0=np.nanmin(WavelengthArray)
+        ERV=(PeakWavelengthArray-lambda_0)/np.nanmean(PeakWavelengthArray)*self.R_0*1e3
         
         if self.fig_spectrogram is not None and indicate_ERV_on_spectrogram:
             self.fig_spectrogram.axes[0].pcolormesh(Positions,WavelengthArray,PeakWavelengthMatrix)
@@ -190,6 +208,8 @@ def optimize_taper_params(x,ERV,wavelengths,lambda_0,init_taper_params,SNAP_exp,
         print('taper opt. delta_t is {}'.format(t))
         return t
     
+    if SNAP_exp.transmission_scale=='log':
+        SNAP_exp.convert_to_lin_transmission()
     x_exp,signal_exp=SNAP_exp.x,SNAP_exp.transmission
     options={}
     options['maxiter']=max_iter 
@@ -220,7 +240,8 @@ def optimize_ERV_shape_by_modes(ERV_f,initial_ERV_params,x_0_ERV,x,lambda_0,
         print('mode positions difference is {}'.format(t))
         return t
 
-
+    if SNAP_exp.transmission_scale=='log':
+        SNAP_exp.convert_to_lin_transmission()
     wavelengths=SNAP_exp.wavelengths
     options={}
     options['maxiter']=max_iter  
@@ -245,6 +266,8 @@ def optimize_ERV_shape_by_whole_transmission(ERV_f,initial_ERV_params,x_0_ERV,x,
         return t
     
 
+    if SNAP_exp.transmission_scale=='log':
+        SNAP_exp.convert_to_lin_transmission()
     wavelengths=SNAP_exp.wavelengths
     options={}
     options['maxiter']=max_iter  
