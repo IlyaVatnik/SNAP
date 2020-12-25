@@ -20,6 +20,10 @@ import scipy.signal
 
 
 class SNAP():
+    
+# =============================================================================
+#     initialization functions
+# =============================================================================
     @classmethod
     def loader(SNAP,f_name='SNAP object'):
         with open(f_name,'rb') as f:
@@ -48,7 +52,7 @@ class SNAP():
         self.need_to_update_transmission=True
         
         self.taper_absS=taper_absS  
-        self.taper_phaseS=taper_phaseS
+        self.taper_phaseS=taper_phaseS  # * pi, this parameter is in parts of one pi
         self.taper_Csquared=taper_Csquared # 1/mkm
         self.taper_ReD=taper_ReD # 1/mkm
         self.taper_ImD_exc=taper_ImD_exc # 1/mkm
@@ -98,12 +102,15 @@ class SNAP():
     def get_taper_params(self):
         return self.taper_absS,self.taper_phaseS,self.taper_ReD,self.taper_ImD_exc,self.taper_Csquared
     
+# =============================================================================
+# core deriving functions    
+# =============================================================================
     def min_imag_D(self):
         taper_ReS=self.taper_absS*np.cos(self.taper_phaseS*np.pi)
         return self.taper_Csquared*(1-taper_ReS)/(1-self.taper_absS**2)
     
     def critical_Csquared(self):
-        taper_ReS=self.taper_absS*np.cos(self.taper_phaseS)
+        taper_ReS=self.taper_absS*np.cos(self.taper_phaseS*np.pi)
         taper_ImD=self.taper_ImD_exc+self.min_imag_D()
         return self.taper_absS**2*taper_ImD/taper_ReS
     
@@ -119,7 +126,7 @@ class SNAP():
     
     
     def critical_Csquared_2(self):
-        taper_ReS=self.taper_absS*np.cos(self.taper_phaseS)
+        taper_ReS=self.taper_absS*np.cos(self.taper_phaseS*np.pi)
         return self.taper_ImD_exc*self.taper_absS**2*(1-self.taper_absS**2)/(taper_ReS-self.taper_absS**2)
         
     
@@ -139,8 +146,6 @@ class SNAP():
         Tmtx=-1/dx**2*sparse.diags([-2*np.ones(self.N),np.ones(self.N)[1:],np.ones(self.N)[1:]],[0,-1,1]).toarray()
         Vmtx=np.diag(U)
         Hmtx=Tmtx+Vmtx
-        # Hmtx[0,-1]=-1/dx**2
-        # Hmtx[-1,0]=-1/dx**2
         (eigvals,eigvecs)=la.eigh(Hmtx,check_finite=False)
         sorted_indexes=np.argsort(np.real(eigvals))
         eigvals,eigvecs=[eigvals[sorted_indexes],eigvecs[sorted_indexes]]
@@ -170,7 +175,7 @@ class SNAP():
         return self.x, self.lambdas,self.transmission
     
 # =============================================================================
-#     This function is just for debugging
+#     These functions are for debugging
 # =============================================================================
     def _derive_transmission_test(self,psi_function):
         taper_D=self.D()
@@ -184,7 +189,30 @@ class SNAP():
         self.transmission=T
         if np.amax(T)>1:
             print('Some error in the algorimth! Transmission became larger than 1')
-        return self.x, self.lambdas,self.transmission
+        return self.x, self.lambdas,self.transmission   
+    
+    def _calculate_GreenFunction_squared_at_point(self,x0):
+        index_x=np.argmin(abs(self.x-x0))
+        G2=np.zeros(len(self.lambdas))
+        U=-2*self.k0**2*self.ERV*(1e-3)/self.R_0
+        eigvals,eigvecs=self.solve_Shrodinger(U)
+        for ii,wavelength in enumerate(self.lambdas):
+            G2[ii]=abs(self.GreenFunction(eigvals,eigvecs,wavelength)[index_x])**2
+   
+        return G2
+##################################  
+
+# =============================================================================
+#   processing      
+# =============================================================================
+    def find_modes(self,prominence_factor=3):
+        if self.need_to_update_transmission:
+            self.derive_transmission()
+        T_shrinked=np.nanmean(abs(self.transmission-np.nanmean(self.transmission,axis=0)),axis=1)
+        mode_indexes,_=scipy.signal.find_peaks(T_shrinked,prominence=np.std(T_shrinked)*prominence_factor)
+        temp=np.sort(self.lambdas[mode_indexes])
+        self.mode_wavelengths=np.array([x for x in temp if x>self.lambda_0])
+        return self.mode_wavelengths
     
     
     def get_spectrum(self,x):
@@ -192,6 +220,12 @@ class SNAP():
             self.derive_transmission()
         i=np.argmin(abs(self.x-x))
         return self.lambdas,self.transmission[:,i]
+
+
+# =============================================================================
+#  plotting, printing etc 
+# =============================================================================
+
     
      
     def plot_spectrum(self,x,scale='lin'):
@@ -201,7 +235,7 @@ class SNAP():
             plt.plot(w,l)
             plt.ylabel('Transmission')
         elif scale=='log':
-            plt.plot(w,np.log10(l))
+            plt.plot(w,10*np.log10(l))
             plt.ylabel('Transmission, dB')
         plt.xlabel('Wavelength,nm')     
         return fig
@@ -226,7 +260,7 @@ class SNAP():
         else:
             temp=self.transmission
         if scale=='log':
-            temp=np.log10(temp)
+            temp=10*np.log10(temp)
         try:
             im = ax_Wavelengths.pcolorfast(self.x,self.lambdas,temp,cmap=self.Cmap)
         except:
@@ -248,15 +282,6 @@ class SNAP():
         plt.tight_layout()
         return fig
     
-    def find_modes(self,prominence_factor=3):
-        if self.need_to_update_transmission:
-            self.derive_transmission()
-        T_shrinked=np.nanmean(abs(self.transmission-np.nanmean(self.transmission,axis=0)),axis=1)
-        mode_indexes,_=scipy.signal.find_peaks(T_shrinked,prominence=np.std(T_shrinked)*prominence_factor)
-        temp=np.sort(self.lambdas[mode_indexes])
-        self.mode_wavelengths=np.array([x for x in temp if x>self.lambda_0])
-        return self.mode_wavelengths
-
     
     def plot_ERV(self):
         fig=plt.figure(2)  
@@ -270,6 +295,11 @@ class SNAP():
     def save(self,f_name='SNAP object'):
         with open(f_name,'wb') as f:
             return pickle.dump(self,f)
+        
+    def print_taper_params(self):
+        print('absS={},phaseS={}*pi,ReD={},ImD_exc={},Csquared={}'.format(*self.get_taper_params()))
+        
+
 
 
         
