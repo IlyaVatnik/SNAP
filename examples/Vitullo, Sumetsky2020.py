@@ -9,7 +9,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from SNAP import SNAP_model
 
-N=300
+N=200
 lambda_0=1552.21
 wave_min,wave_max,res=1552.2,1552.6, 2e-4
 
@@ -24,7 +24,7 @@ def ERV(x):
 
 ERV=np.array(list(map(ERV,x)))
 
-SNAP=SNAP_model.SNAP(x,ERV,lambda_array,lambda_0=lambda_0,res_width=1e-4,R_0=38/2)
+SNAP=SNAP_model.SNAP(x,ERV,lambda_array,lambda_0=lambda_0,res_width=6e-5,R_0=38/2)
 SNAP.set_taper_params(absS=np.sqrt(0.9),phaseS=-0.05,ReD=0.025,ImD_exc=0.009,Csquared=0.025)
 SNAP.plot_spectrogram(plot_ERV=False,scale='log')
 plt.gcf().axes[0].set_ylim((1552.46,1552.5))

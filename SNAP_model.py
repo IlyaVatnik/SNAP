@@ -306,15 +306,15 @@ class SNAP():
 if __name__=='__main__':
 
     
-    N=500
+    N=200
     lambda_0=1552.21
     wave_min,wave_max,res=1552.18,1552.4664, 1e-4
     
     x=np.linspace(-650,650,N)
     lambda_array=np.arange(wave_min,wave_max,res)
     
-    A=3
-    sigma=60.5934
+    A=2000
+    sigma=5.5934
     p=1.1406
     def ERV(x):
         # if abs(x)<=200:
