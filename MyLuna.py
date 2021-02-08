@@ -82,6 +82,35 @@ def get_IL_considering_taper(f_name_in,f_name_out):
     plt.plot(signal_in_contact.lambdas,10*np.log10(IL_2),label='IL_2')
     plt.legend()
 
+# =============================================================================
+# example
+# =============================================================================
+if __name__=='__main__':
+    f_name_in='In contact.txt'
+    f_name_out='Out of contact.txt'
+    signal_in=raw_signal(f_name_in,first_column=9)
+    signal_out=raw_signal(f_name_out,first_column=9)
+    
+    IL_1=np.zeros(signal_in.N)
+    IL_2=np.zeros(signal_in.N)
+
+    for i in range(signal_in.N):
+        M=np.dot(la.inv(signal_out.JonesMatrixes[i]),signal_in.JonesMatrixes[i])
+        results=la.eig(M)
+        IL_1[i],IL_2[i]=abs(results[0])**2
+
+    plt.figure()
+    plt.plot(signal_in.lambdas,IL_1,label='IL_1')
+    plt.plot(signal_in.lambdas,IL_2,label='IL_2')
+# plt.plot(10*np.log10(IL_my),label='my')
+    plt.legend()
+
+    plt.figure()
+    plt.plot(signal_in.lambdas,10*np.log10((IL_1+IL_2)/2),label='sum of two principle IL')
+    signal_in.plot_IL()
+    plt.plot(signal_in.lambdas,10*np.log10(IL_1),label='IL_1')
+    plt.plot(signal_in.lambdas,10*np.log10(IL_2),label='IL_2')
+    plt.legend()
         
 
     
