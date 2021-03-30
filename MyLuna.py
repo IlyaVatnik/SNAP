@@ -74,13 +74,14 @@ def get_IL_considering_taper(f_name_in,f_name_out):
     plt.plot(signal_in_contact.lambdas,IL_2,label='IL_2')
     # plt.plot(10*np.log10(IL_my),label='my')
     plt.legend()
+    plt.title(str(f_name_in))
     
-    plt.figure()
-    plt.plot(signal_in_contact.lambdas,10*np.log10((IL_1+IL_2)/2),label='sum of two principle IL')
-    signal_in_contact.plot_IL()
-    plt.plot(signal_in_contact.lambdas,10*np.log10(IL_1),label='IL_1')
-    plt.plot(signal_in_contact.lambdas,10*np.log10(IL_2),label='IL_2')
-    plt.legend()
+    # plt.figure()
+    # plt.plot(signal_in_contact.lambdas,10*np.log10((IL_1+IL_2)/2),label='sum of two principle IL')
+    # signal_in_contact.plot_IL()
+    # plt.plot(signal_in_contact.lambdas,10*np.log10(IL_1),label='IL_1')
+    # plt.plot(signal_in_contact.lambdas,10*np.log10(IL_2),label='IL_2')
+    # plt.legend()
 
 # =============================================================================
 # example

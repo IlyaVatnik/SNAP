@@ -135,6 +135,18 @@ class SNAP():
         self.fig_spectrogram=fig
         return fig
     
+    
+    def plot_spectrum(self,x):
+        fig=plt.figure()
+        plt.clf()
+        # matplotlib.rcParams.update({'font.size': font_size})
+        index=np.argmin(abs(x-self.x))
+        plt.plot(self.wavelengths,self.transmission[:,index])
+        plt.xlabel('Wavelength,nm')
+        plt.ylabel('Spectral power density, dBm')
+        
+        
+    
     def extract_ERV(self,MinimumPeakDepth,MinWavelength=0,MaxWavelength=1e4, indicate_ERV_on_spectrogram=False):
         global R_0
         NumberOfWavelength,Number_of_positions = self.transmission.shape
