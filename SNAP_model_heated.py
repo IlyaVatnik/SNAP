@@ -2,8 +2,8 @@
 """
 Created on Sun Mar 28 21:11:01 2021
 
-@author: t-vatniki
 Time-dependent numerical solution for temperature distribution along the fiber under local heating with WGM mode
+Following Gorodecky, p.313
 """
 
 
@@ -94,19 +94,23 @@ def ode_FE(dw,T_max,a=0,u=np.ones(N+1)*T0):
     # Ensure that any list/tuple returned from f_ is wrapped as array
     rhs_thermal_array = lambda a,u, t: np.asarray(rhs_thermal(a,u, t))
     t=0
-    Uarray=[]
-    a_array=np.zeros((N_t+1,1))
-    TimeArray=np.linspace(0,T_max,N_t+1)
+    u_array=[]
+    a_array=[]
     for n in range(N_t+1):
         t=t+dt
         a=a+dt*rhs_modal(a,u,t,dw)
+        if abs(a)>1e10:
+            print('unstable simulation')
+            break
+        a_array.append(abs(a))
         u = u + dt*rhs_thermal_array(a,u, t)
-        a_array[n]=abs(a)
         if n in Indexes_to_save:
-            Uarray.append(u)
+            u_array.append(u)
         if (n%10000)==0:
             print('step ', n,' of ', N_t)
-    return u, np.array(Uarray), TimeArray,a_array
+    TimeArray=np.linspace(0,dt*n,n)
+    
+    return u, np.array(u_array), TimeArray,a_array
 
 def rhs_modal(a,u,t,dw):
     return 1j*F-a*delta_c+a*1j*(thermal_optical_responce*np.sum((u-T0)*mode_distrib_array)/mode_distrib_sum+dw)    
