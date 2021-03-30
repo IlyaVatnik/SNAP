@@ -47,8 +47,8 @@ absorption=8 #dB/m
 ESA_parameter=0.15 # Excitated state absorption parameter, from  [Guzman-Chavez AD, Barmenkov YO, Kir’yanov A V. Spectral dependence of the excited-state absorption of erbium in silica fiber within the 1.48–1.59μm range. Appl Phys Lett 2008;92:191111. https://doi.org/10.1063/1.2926671.]
 thermal_expansion_coefficient=0.0107*r*1e3 #  nm/K, for effective radius variation
 
-losses_at_taper=0.8
-gain_small_signal=80
+transmission_at_taper=0.8
+gain_small_signal=100
 P_sat=0.08
 
 """
@@ -105,7 +105,7 @@ omicron=1/(specific_heat_capacity*np.pi*r**2*density)
 alpha=absorption/4.34/1e3 # absorption in 1/mm for ln case
 
 F=np.sqrt(4*Pin*delta_c/epsilon_0/epsilon/Veff)
-core_heating_constant=alpha*omicron*ESA_parameter*splice_transmission*losses_at_taper
+core_heating_constant=alpha*omicron*ESA_parameter*splice_transmission*transmission_at_taper
 
 def ode_FE(dw,T_max,a=0,u=np.ones(N+1)*T0):
     N_t=int(T_max/dt)
@@ -115,6 +115,7 @@ def ode_FE(dw,T_max,a=0,u=np.ones(N+1)*T0):
     t=0
     u_array=[]
     a_array=[]
+    test=[]
     TimeArray=np.linspace(0,dt*N_t,N_t+1)
     for n in range(N_t+1):
         t=t+dt
@@ -129,6 +130,7 @@ def ode_FE(dw,T_max,a=0,u=np.ones(N+1)*T0):
         a_array.append(abs(a))
         # if (n%100)==0:
         u = u + dt*rhs_thermal_array(a,u,du_average, t)
+        test.append(heating_from_core(dw,L/2,du_average)/heating_from_WGM(a,L/2,t))
         # test.append(thermal_optical_responce*np.sum((u-T0)*mode_distrib_array/mode_distrib_sum))
         if n in Indexes_to_save:
             u_array.append(u)
@@ -136,7 +138,7 @@ def ode_FE(dw,T_max,a=0,u=np.ones(N+1)*T0):
             print('step ', n,' of ', N_t)
 
     
-    return TimeArray,a_array,u
+    return TimeArray,a_array,u,test
 
 def rhs_modal(a,du_average,t,dw):
     return 1j*F-a*(delta_c+delta_0)+a*1j*(thermal_optical_responce*du_average+dw)    
@@ -209,12 +211,14 @@ def stationary_solution(dw):
 
 time0=time.time()
 
-# TimeArray,a_array,u = ode_FE(dw,T_max=0.2)
-# fig=plt.figure(1)
-# x=x-L/2
-# plt.plot(x,u)
-# plt.figure(2)
-# plt.plot(TimeArray,a_array)
+TimeArray,a_array,u,test = ode_FE(dw,T_max=2)
+fig=plt.figure(1)
+x=x-L/2
+plt.plot(x,u)
+plt.figure(2)
+plt.plot(TimeArray,a_array)
+plt.figure(3)
+plt.plot(TimeArray,test)
 
 # u,Uarray, TimeArray,a_array,test = ode_FE(dw,T_max)
 # plt.figure(2)
@@ -222,16 +226,16 @@ time0=time.time()
 # plt.figure(22)
 # plt.plot(TimeArray,test)
 
-dw_array_forward,a_array_forward=find_spectral_responce()
-dw_array_backward,a_array_backward=find_spectral_responce('backward')
-plt.figure(3)
-plt.plot(dw_array_forward,a_array_forward,label='forward')
-plt.plot(dw_array_backward,a_array_backward,label='backward')
-a_array_num=np.array(list(map(stationary_solution,dw_array_forward)))
-plt.plot(dw_array_forward,a_array_num,'.',label='no nonlinearities')
-plt.legend()
-plt.xlabel('detuning, Hz')
-plt.ylabel('Amplitude in the cavity')
+# dw_array_forward,a_array_forward=find_spectral_responce()
+# dw_array_backward,a_array_backward=find_spectral_responce('backward')
+# plt.figure(3)
+# plt.plot(dw_array_forward,a_array_forward,label='forward')
+# plt.plot(dw_array_backward,a_array_backward,label='backward')
+# a_array_num=np.array(list(map(stationary_solution,dw_array_forward)))
+# plt.plot(dw_array_forward,a_array_num,'.',label='no nonlinearities')
+# plt.legend()
+# plt.xlabel('detuning, Hz')
+# plt.ylabel('Amplitude in the cavity')
 
 # fig=plt.figure(1)
 # for ind,t in enumerate(Times):
