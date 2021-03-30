@@ -29,9 +29,9 @@ sigma=0.92*5.6e-8*1e-6 #W/mm**2/K**4 Stephan-Boltzman constant
 r=62.5e-3 #mm, fiber radius
 specific_heat_capacity=740 # J/kg/K
 density=2.2*1e-3*1e-3 # kg/mm**3
-absorption_in_silica=3.27e-09 #absorption in silica, 1/mm
+absorption_in_silica=3.27e-09*0 #absorption in silica, 1/mm
 
-thermal_optical_responce=1.25e9 # Hz/Celcium
+thermal_optical_responce=1.25e9*0 # Hz/Celcium
 
 """
 Sample parameters
@@ -42,20 +42,20 @@ T0=25 #K
 '''
 Properties of the heating into the core
 '''
-splice_transmission=0.87
+splice_transmission=0.01
 absorption=8 #dB/m
 ESA_parameter=0.15 # Excitated state absorption parameter, from  [Guzman-Chavez AD, Barmenkov YO, Kir’yanov A V. Spectral dependence of the excited-state absorption of erbium in silica fiber within the 1.48–1.59μm range. Appl Phys Lett 2008;92:191111. https://doi.org/10.1063/1.2926671.]
-thermal_expansion_coefficient=0.0107*r*1e3 #  nm/K, for effective radius variation
+# thermal_expansion_coefficient=0.0107*r*1e3 #  nm/K, for effective radius variation
 
 transmission_at_taper=0.8
-gain_small_signal=100
-P_sat=0.08
+gain_small_signal=15 # dB
+P_sat=0.01 # W
 
 """
 Properties of the resonance and input power
 """
-Pin=0.03 # W, power launched through the taper
-dw=-10e6 ## 1/s, detuning of the pump from the center of the resonance
+Pin=0.04 # W, power launched through the taper
+dw=-40e6 ## 1/s, detuning of the pump from the center of the resonance
 delta_c=100e6 #1/s, spectral width of the resonance due to coupling
 delta_0=10e6 #1/s, spectral width of the resonance due to ineer losses
 x_0=L/2 # point where the center of the mode is  and where taper is
@@ -99,14 +99,16 @@ gamma=heat_exchange/specific_heat_capacity/density*2/r
 delta=sigma/specific_heat_capacity/density*2/r
 
 modal_heat_const=epsilon_0*epsilon/2/1.5*c*absorption_in_silica
-gamma1=modal_heat_const/density/specific_heat_capacity
-
+dzeta=modal_heat_const/density/specific_heat_capacity/np.pi*r**2
 omicron=1/(specific_heat_capacity*np.pi*r**2*density)
+
 alpha=absorption/4.34/1e3 # absorption in 1/mm for ln case
 
 F=np.sqrt(4*Pin*delta_c/epsilon_0/epsilon/Veff)
-core_heating_constant=alpha*omicron*ESA_parameter*splice_transmission*transmission_at_taper
+core_heating_constant=alpha*ESA_parameter*splice_transmission*transmission_at_taper
 
+
+gain_small_signal_lin=10**(gain_small_signal/10)
 def ode_FE(dw,T_max,a=0,u=np.ones(N+1)*T0):
     N_t=int(T_max/dt)
     Indexes_to_save=[N_t]
@@ -130,7 +132,7 @@ def ode_FE(dw,T_max,a=0,u=np.ones(N+1)*T0):
         a_array.append(abs(a))
         # if (n%100)==0:
         u = u + dt*rhs_thermal_array(a,u,du_average, t)
-        test.append(heating_from_core(dw,L/2,du_average)/heating_from_WGM(a,L/2,t))
+        test.append(heating_from_core(dw,L/2,du_average))
         # test.append(thermal_optical_responce*np.sum((u-T0)*mode_distrib_array/mode_distrib_sum))
         if n in Indexes_to_save:
             u_array.append(u)
@@ -154,9 +156,9 @@ def rhs_thermal(a,u,du_average, t):
 #    for i in range(1, N):
 #        rhs[i] = (beta/dx**2)*(u[i+1] - 2*u[i] + u[i-1]) + \
 #                 f(x[i], t)
-    rhs[1:N] = (beta/dx**2)*(u[2:N+1] - 2*u[1:N] + u[0:N-1])+heating_from_core(x,dw,du_average) + heating_from_WGM(a,x[1:N], t)*gamma1 - (u[1:N]-T0)*gamma-(u[1:N]+273)**4*delta+(T0+273)**4*delta
+    rhs[1:N] = (beta/dx**2)*(u[2:N+1] - 2*u[1:N] + u[0:N-1])+heating_from_core(dw,x[1:N],du_average)*omicron + heating_from_WGM(a,x[1:N], t)*dzeta - (u[1:N]-T0)*gamma-(u[1:N]+273)**4*delta+(T0+273)**4*delta
     rhs[N] = (beta/dx**2)*(2*u[N-1]  -
-                           2*u[N]) +heating_from_core(x,dw,du_average)+ heating_from_WGM(a,x[N], t)*gamma1 - (u[N]-T0)*gamma -(u[N]+273)**4*delta+(T0+273)**4*delta #+ 2*dx*dudx(t)
+                           2*u[N]) +heating_from_core(dw,x[N],du_average)*omicron+ heating_from_WGM(a,x[N], t)*dzeta - (u[N]-T0)*gamma -(u[N]+273)**4*delta+(T0+273)**4*delta #+ 2*dx*dudx(t)
     return rhs
 
 
@@ -171,16 +173,18 @@ def transmission(dw,u_average=0):
     return (1-4*delta_c*delta_0/(delta_c**2+delta_0**2)+(dw+(u_average-T0)*thermal_optical_responce)**2)
 
 def amplifying_before_core(P):
-    return np.exp(gain_small_signal/(1+P/P_sat))
+    return gain_small_signal_lin**(1/(1+P/P_sat))
 
 def heating_from_core(dw,x,du_average): # source distribution
-    if np.size(x)>1:
+    if np.size(x)>1:   
         output=np.zeros(np.shape(x))
         inds=np.where(x>x_0)
         output[inds]=np.exp(-alpha*(x[inds]-x_0))
-        return output*core_heating_constant*Pin*transmission(dw,du_average)*amplifying_before_core(Pin)
+        PintoCore=Pin*transmission(dw,du_average)
+        return output*core_heating_constant*PintoCore*amplifying_before_core(PintoCore)
     else:
         return 0
+
 
 
 def find_spectral_responce(direction='forward'):
