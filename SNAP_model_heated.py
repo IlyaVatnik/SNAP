@@ -244,8 +244,8 @@ time0=time.time()
 #%%
 
 for Pin in np.linspace(1e-3,4e-2,6):
-    dv_array_forward,a_array_forward=find_spectral_response(Pin,T_equilibr=3,dv_max=50*delta_c,direction='forward')
-    dv_array_backward,a_array_backward=find_spectral_response(Pin,T_equilibr=3,dv_max=50*delta_c,direction='backward')
+    dv_array_forward,a_array_forward=find_spectral_response(Pin,T_equilibr=1,dv_max=50*delta_c,direction='forward')
+    dv_array_backward,a_array_backward=find_spectral_response(Pin,T_equilibr=1,dv_max=50*delta_c,direction='backward')
     plt.figure(3)
     plt.clf()
     plt.plot(dv_array_forward,a_array_forward,label='forward')
@@ -255,8 +255,8 @@ for Pin in np.linspace(1e-3,4e-2,6):
     plt.legend()
     plt.xlabel('detuning, Hz')
     plt.ylabel('Amplitude in the cavity, V/m')
-    plt.title('Pin={} W, gain={} dB, transmission to amplifier={}'.format(Pin,gain_small_signal,transmission_from_taper_to_amplifier))
-    plt.savefig('Results\\Pin={}, gain={}, transmission to amplifier={}.png'.format(Pin,gain_small_signal,transmission_from_taper_to_amplifier),dpi=300)
+    plt.title('Pin={:.3f}, gain={:.2f}, transmission to amplifier={:.3f}'.format(Pin,gain_small_signal,transmission_from_taper_to_amplifier))
+    plt.savefig('Results\\Pin={:.3f}, gain={:.2f}, transmission to amplifier={:.3f}.png'.format(Pin,gain_small_signal,transmission_from_taper_to_amplifier),dpi=300)
 
 # fig=plt.figure(1)
 # for ind,t in enumerate(Times):
