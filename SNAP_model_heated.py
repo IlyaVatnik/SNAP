@@ -50,7 +50,7 @@ absorption=8 #dB/m , absoprtion in the active core
 ESA_parameter=0.15 # Excitated state absorption parameter, from  [Guzman-Chavez AD, Barmenkov YO, Kir’yanov A V. Spectral dependence of the excited-state absorption of erbium in silica fiber within the 1.48–1.59μm range. Appl Phys Lett 2008;92:191111. https://doi.org/10.1063/1.2926671.]
 # thermal_expansion_coefficient=0.0107*r*1e3 #  nm/K, for effective radius variation
 
-transmission_from_taper_to_amplifier=0.0 # parts, betwee the taper and amplifier
+transmission_from_taper_to_amplifier=0.2 # parts, betwee the taper and amplifier
 gain_small_signal=15 # dB, gain of the amplifier guiding to the core
 P_sat=0.08 # W, saturation power for the amplifier
 
@@ -58,7 +58,9 @@ P_sat=0.08 # W, saturation power for the amplifier
 Properties of the input radiation
 """
 Pin=0.01 # W, power launched through the taper
-dv=+50e6 ## Hz, detuning of the pump from the center of the cold resonance 
+dv=-100e6 ## Hz, detuning of the pump from the center of the cold resonance 
+d_dv=1*300e6
+dv_period=5e-4
 x_0=L/2 # point where the center of the mode is  and where taper is
 
 '''
@@ -81,7 +83,7 @@ grid parameters
 """
 dx=0.05
 # dt = 1/delta_c/6 # also should be no less than dx**2/2/beta
-dt=1e-3 # s
+dt=1e-5 # s
 T_max=0.3 # s
 
 '''
@@ -122,7 +124,7 @@ def solve_model(Pin,dv,T_max,a=0,u=np.ones(N+1)*T0):
     N_t=int(T_max/dt)
     Indexes_to_save=[N_t]
     # Ensure that any list/tuple returned from f_ is wrapped as array
-    rhs_thermal_array = lambda Pin,a,u,du_average, t: np.asarray(_rhs_thermal(Pin,a,u,du_average, t))
+    rhs_thermal_array = lambda Pin,a,dv,u,du_average, t: np.asarray(_rhs_thermal(Pin,a,dv,u,du_average, t))
     t=0
     u_array=[]
     a_array=[]
@@ -130,6 +132,7 @@ def solve_model(Pin,dv,T_max,a=0,u=np.ones(N+1)*T0):
     TimeArray=np.linspace(0,dt*N_t,N_t+1)
     for n in range(N_t+1):
         t=t+dt
+        dv+=d_dv*np.sin(2*np.pi*t/dv_period)
         # a=a+dt*_rhs_modal(F,a,u,t,dv)
         du_average=np.sum((u-T0)*mode_distrib_array)/mode_distrib_sum
         a=_analytical_step_for_WGM_amplitude(F,a,du_average,dt,dv)
@@ -140,7 +143,7 @@ def solve_model(Pin,dv,T_max,a=0,u=np.ones(N+1)*T0):
             break
         a_array.append(abs(a))
         # if (n%100)==0:
-        u = u + dt*rhs_thermal_array(Pin,a,u,du_average, t)
+        u = u + dt*rhs_thermal_array(Pin,a,dv,u,du_average, t)
         # test.append(heating_from_core(dv,L/2,du_average))
         # test.append(thermal_optical_responce*np.sum((u-T0)*mode_distrib_array/mode_distrib_sum))
         if n in Indexes_to_save:
@@ -156,7 +159,7 @@ def _analytical_step_for_WGM_amplitude(F,a,du_average,t,dv):
     temp=1j*(thermal_optical_responce*du_average+dv)-delta_c-delta_0
     return np.exp(temp*t)*(a+1j*F/temp)-1j*F/temp
 
-def _rhs_thermal(Pin,a,u,du_average, t):
+def _rhs_thermal(Pin,a,dv,u,du_average, t):
     N = len(u) - 1
     rhs = np.zeros(N+1)
     rhs[0] = 0 #dsdt(t)
@@ -225,38 +228,38 @@ time0=time.time()
 
 
 #%%
-# TimeArray,a_array,u,test = solve_model(dv,T_max)
-# fig=plt.figure(1)
-# x=x-L/2
-# plt.plot(x,u)
-# plt.xlabel('position, mm')
-# plt.ylabel('Temperature, $^0$C')
-# plt.figure(2)
-# plt.plot(TimeArray,a_array)
-# plt.xlabel('Time, s')
-# plt.ylabel('amplitude in the cavity, V/m')
-# plt.figure(3)
-# plt.plot(TimeArray,test)
-# plt.xlabel('Time, s')
-# plt.ylabel('Mode temperature, $^0C$')
+TimeArray,a_array,u,test = solve_model(Pin,dv,T_max=3)
+fig=plt.figure(1)
+x=x-L/2
+plt.plot(x,u)
+plt.xlabel('position, mm')
+plt.ylabel('Temperature, $^0$C')
+plt.figure(2)
+plt.plot(TimeArray,a_array)
+plt.xlabel('Time, s')
+plt.ylabel('amplitude in the cavity, V/m')
+plt.figure(3)
+plt.plot(TimeArray,test)
+plt.xlabel('Time, s')
+plt.ylabel('Mode temperature, $^0C$')
 
 
 #%%
 
-for Pin in np.linspace(1e-3,4e-2,6):
-    dv_array_forward,a_array_forward=find_spectral_response(Pin,T_equilibr=1,dv_max=50*delta_c,direction='forward')
-    dv_array_backward,a_array_backward=find_spectral_response(Pin,T_equilibr=1,dv_max=50*delta_c,direction='backward')
-    plt.figure(3)
-    plt.clf()
-    plt.plot(dv_array_forward,a_array_forward,label='forward')
-    plt.plot(dv_array_backward,a_array_backward,label='backward')
-    a_array_num=np.array(list(map(lambda dv:stationary_solution(Pin,dv),dv_array_forward)))
-    plt.plot(dv_array_forward,a_array_num,'.',label='no nonlinearities')
-    plt.legend()
-    plt.xlabel('detuning, Hz')
-    plt.ylabel('Amplitude in the cavity, V/m')
-    plt.title('Pin={:.3f}, gain={:.2f}, transmission to amplifier={:.3f}'.format(Pin,gain_small_signal,transmission_from_taper_to_amplifier))
-    plt.savefig('Results\\Pin={:.3f}, gain={:.2f}, transmission to amplifier={:.3f}.png'.format(Pin,gain_small_signal,transmission_from_taper_to_amplifier),dpi=300)
+# for Pin in np.linspace(1e-3,4e-2,6):
+# dv_array_forward,a_array_forward=find_spectral_response(Pin,T_equilibr=1,dv_max=20*delta_c,direction='forward')
+# dv_array_backward,a_array_backward=find_spectral_response(Pin,T_equilibr=1,dv_max=20*delta_c,direction='backward')
+# plt.figure(3)
+# plt.clf()
+# plt.plot(dv_array_forward,a_array_forward,label='forward')
+# plt.plot(dv_array_backward,a_array_backward,label='backward')
+# a_array_num=np.array(list(map(lambda dv:stationary_solution(Pin,dv),dv_array_forward)))
+# plt.plot(dv_array_forward,a_array_num,'.',label='no nonlinearities')
+# plt.legend()
+# plt.xlabel('detuning, Hz')
+# plt.ylabel('Amplitude in the cavity, V/m')
+# plt.title('Pin={:.3f}, gain={:.2f}, transmission to amplifier={:.3f}'.format(Pin,gain_small_signal,transmission_from_taper_to_amplifier))
+# plt.savefig('Results\\Pin={:.3f}, gain={:.2f}, transmission to amplifier={:.3f}.png'.format(Pin,gain_small_signal,transmission_from_taper_to_amplifier),dpi=300)
 
 # fig=plt.figure(1)
 # for ind,t in enumerate(Times):
