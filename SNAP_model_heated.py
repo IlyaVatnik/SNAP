@@ -36,11 +36,12 @@ epsilon=1.5**2 #refractive index
 absorption_in_silica=3.27e-09 #absorption in silica, 1/mm
 thermal_optical_responce=1.25e9 # Hz/Celcium, detuning of the effective_ra
 
+
 """
 Sample parameters
 """
 L=15 # mm, fiber sample length
-T0=20 #K, initial temperature of the sample being in equilibrium 
+T0=20 #Celsium, initial temperature of the sample being in equilibrium 
 
 '''
 Properties of the heating into the core
@@ -50,29 +51,25 @@ absorption=8 #dB/m , absoprtion in the active core
 ESA_parameter=0.15 # Excitated state absorption parameter, from  [Guzman-Chavez AD, Barmenkov YO, Kir’yanov A V. Spectral dependence of the excited-state absorption of erbium in silica fiber within the 1.48–1.59μm range. Appl Phys Lett 2008;92:191111. https://doi.org/10.1063/1.2926671.]
 # thermal_expansion_coefficient=0.0107*r*1e3 #  nm/K, for effective radius variation
 
-transmission_from_taper_to_amplifier=0.2 # parts, betwee the taper and amplifier
+transmission_from_taper_to_amplifier=0.2  # parts, betwee the taper and amplifier
 gain_small_signal=15 # dB, gain of the amplifier guiding to the core
 P_sat=0.08 # W, saturation power for the amplifier
 
 """
 Properties of the input radiation
 """
-Pin=0.01 # W, power launched through the taper
+Pin=0.001 # W, power launched through the taper
 dv=-100e6 ## Hz, detuning of the pump from the center of the cold resonance 
-d_dv=1*300e6
+d_dv=0*300e6
 dv_period=5e-4
 x_0=L/2 # point where the center of the mode is  and where taper is
 
 '''
 Mode properties
 '''
+Gamma=1
+delta_0=1e6 # Hz, spectral width of the resonance due to inner losses
 delta_c=100e6 # Hz, spectral width of the resonance due to coupling
-delta_0=100e6 # Hz, spectral width of the resonance due to inner losses
-
-
-'''
-Mode distribution
-'''
 mode_width=0.2 #mm
 def mode_distrib(x): # WGM mode distribution normilized as max(mode_distrib)=1
     return np.exp(-(x-x_0)**2/mode_width**2)
@@ -83,7 +80,7 @@ grid parameters
 """
 dx=0.05
 # dt = 1/delta_c/6 # also should be no less than dx**2/2/beta
-dt=1e-5 # s
+dt=1e-3 # s
 T_max=0.3 # s
 
 '''
@@ -180,7 +177,7 @@ def _heating_from_WGM(a,x, t): # source distribution
         return abs(a)**2*mode_distrib(x)
     
 def transmission(dv,u_average=0):
-    return 1-4*delta_c*delta_0/((delta_c+delta_0)**2+(dv+(u_average-T0)*thermal_optical_responce)**2)
+    return 1-4*delta_c*delta_0*Gamma**2/((delta_c+delta_0)**2+(dv-(u_average-T0)*thermal_optical_responce)**2)
 
 def _amplifying_before_core(P):
     return gain_small_signal_lin**(1/(1+P/P_sat))
@@ -228,37 +225,37 @@ time0=time.time()
 
 
 #%%
-TimeArray,a_array,u,test = solve_model(Pin,dv,T_max=3)
-fig=plt.figure(1)
-x=x-L/2
-plt.plot(x,u)
-plt.xlabel('position, mm')
-plt.ylabel('Temperature, $^0$C')
-plt.figure(2)
-plt.plot(TimeArray,a_array)
-plt.xlabel('Time, s')
-plt.ylabel('amplitude in the cavity, V/m')
-plt.figure(3)
-plt.plot(TimeArray,test)
-plt.xlabel('Time, s')
-plt.ylabel('Mode temperature, $^0C$')
+# TimeArray,a_array,u,test = solve_model(Pin,dv,T_max=3)
+# fig=plt.figure(1)
+# x=x-L/2
+# plt.plot(x,u)
+# plt.xlabel('position, mm')
+# plt.ylabel('Temperature, $^0$C')
+# plt.figure(2)
+# plt.plot(TimeArray,a_array)
+# plt.xlabel('Time, s')
+# plt.ylabel('amplitude in the cavity, V/m')
+# plt.figure(3)
+# plt.plot(TimeArray,test)
+# plt.xlabel('Time, s')
+# plt.ylabel('Mode temperature, $^0C$')
 
 
 #%%
 
 # for Pin in np.linspace(1e-3,4e-2,6):
-# dv_array_forward,a_array_forward=find_spectral_response(Pin,T_equilibr=1,dv_max=20*delta_c,direction='forward')
-# dv_array_backward,a_array_backward=find_spectral_response(Pin,T_equilibr=1,dv_max=20*delta_c,direction='backward')
-# plt.figure(3)
-# plt.clf()
-# plt.plot(dv_array_forward,a_array_forward,label='forward')
-# plt.plot(dv_array_backward,a_array_backward,label='backward')
-# a_array_num=np.array(list(map(lambda dv:stationary_solution(Pin,dv),dv_array_forward)))
-# plt.plot(dv_array_forward,a_array_num,'.',label='no nonlinearities')
-# plt.legend()
-# plt.xlabel('detuning, Hz')
-# plt.ylabel('Amplitude in the cavity, V/m')
-# plt.title('Pin={:.3f}, gain={:.2f}, transmission to amplifier={:.3f}'.format(Pin,gain_small_signal,transmission_from_taper_to_amplifier))
+dv_array_forward,a_array_forward=find_spectral_response(Pin,T_equilibr=1,dv_max=20*delta_c,direction='forward')
+dv_array_backward,a_array_backward=find_spectral_response(Pin,T_equilibr=1,dv_max=20*delta_c,direction='backward')
+plt.figure(3)
+plt.clf()
+plt.plot(dv_array_forward,a_array_forward,label='forward')
+plt.plot(dv_array_backward,a_array_backward,label='backward')
+a_array_num=np.array(list(map(lambda dv:stationary_solution(Pin,dv),dv_array_forward)))
+plt.plot(dv_array_forward,a_array_num,'.',label='no nonlinearities')
+plt.legend()
+plt.xlabel('detuning, Hz')
+plt.ylabel('Amplitude in the cavity, V/m')
+plt.title('Pin={:.3f}, gain={:.2f}, transmission to amplifier={:.3f}'.format(Pin,gain_small_signal,transmission_from_taper_to_amplifier))
 # plt.savefig('Results\\Pin={:.3f}, gain={:.2f}, transmission to amplifier={:.3f}.png'.format(Pin,gain_small_signal,transmission_from_taper_to_amplifier),dpi=300)
 
 # fig=plt.figure(1)
@@ -271,8 +268,11 @@ plt.ylabel('Mode temperature, $^0C$')
 # plt.ylabel('Temperature, C')
 # plt.savefig('Distributions for P='+str(Pin)+ '%, T='+str(Times)+'.png')
 
-# #%%
+#%%
+
 # plt.figure(4)
+# delta_c=100e6
+# delta_0=100e6
 # N_dv=30
 # dv_max=4*delta_c
 # dv_array=np.linspace(dv_max,-dv_max,N_dv)
@@ -281,5 +281,6 @@ plt.ylabel('Mode temperature, $^0C$')
 # plt.figure(5)
 # P_array=np.linspace(0,0.1,20)
 # plt.plot(P_array,list(map(amplifying_before_core,P_array)))
+
 print('Time spent={} s'.format(time.time()-time0))
 
