@@ -33,7 +33,7 @@ specific_heat_capacity=740 # J/kg/K
 density=2.2*1e-3*1e-3 # kg/mm**3
 
 epsilon=1.5**2 #refractive index
-absorption_in_silica=3.27e-09 #absorption in silica, 1/mm
+absorption_in_silica=3.27e-09*0 #absorption in silica, 1/mm
 thermal_optical_responce=1.25e9 # Hz/Celcium, detuning of the effective_ra
 
 
@@ -51,16 +51,17 @@ absorption=8 #dB/m , absoprtion in the active core
 ESA_parameter=0.15 # Excitated state absorption parameter, from  [Guzman-Chavez AD, Barmenkov YO, Kir’yanov A V. Spectral dependence of the excited-state absorption of erbium in silica fiber within the 1.48–1.59μm range. Appl Phys Lett 2008;92:191111. https://doi.org/10.1063/1.2926671.]
 # thermal_expansion_coefficient=0.0107*r*1e3 #  nm/K, for effective radius variation
 
-transmission_from_taper_to_amplifier=0.2  # parts, betwee the taper and amplifier
-gain_small_signal=15 # dB, gain of the amplifier guiding to the core
+transmission_from_taper_to_amplifier=0.1  # parts, betwee the taper and amplifier
+gain_small_signal=20
+ # dB, gain of the amplifier guiding to the core
 P_sat=0.08 # W, saturation power for the amplifier
 
 """
 Properties of the input radiation
 """
-Pin=0.001 # W, power launched through the taper
-dv=-100e6 ## Hz, detuning of the pump from the center of the cold resonance 
-d_dv=0*300e6
+Pin=0.005 # W, power launched through the taper
+dv=50e6 ## Hz, detuning of the pump from the center of the cold resonance 
+d_dv=100e6
 dv_period=5e-4
 x_0=L/2 # point where the center of the mode is  and where taper is
 
@@ -68,8 +69,9 @@ x_0=L/2 # point where the center of the mode is  and where taper is
 Mode properties
 '''
 Gamma=1
-delta_0=1e6 # Hz, spectral width of the resonance due to inner losses
-delta_c=100e6 # Hz, spectral width of the resonance due to coupling
+delta_0=5e6 # Hz, spectral width of the resonance due to inner losses
+delta_c=5e6 # Hz, spectral width of the resonance due to coupling
+
 mode_width=0.2 #mm
 def mode_distrib(x): # WGM mode distribution normilized as max(mode_distrib)=1
     return np.exp(-(x-x_0)**2/mode_width**2)
@@ -81,7 +83,10 @@ grid parameters
 dx=0.05
 # dt = 1/delta_c/6 # also should be no less than dx**2/2/beta
 dt=1e-3 # s
-T_max=0.3 # s
+T_max=2 # s
+
+dv_max=200*(delta_0+delta_c)
+N_dv=200
 
 '''
 Internal parameters
@@ -190,6 +195,7 @@ def _heating_from_core(Pin,dv,x,du_average): # source distribution
         PintoCore=Pin*transmission(dv,du_average)
         return output*core_heating_constant*PintoCore*_amplifying_before_core(PintoCore)
     else:
+        
         return 0
 
   
@@ -244,19 +250,20 @@ time0=time.time()
 #%%
 
 # for Pin in np.linspace(1e-3,4e-2,6):
-dv_array_forward,a_array_forward=find_spectral_response(Pin,T_equilibr=1,dv_max=20*delta_c,direction='forward')
-dv_array_backward,a_array_backward=find_spectral_response(Pin,T_equilibr=1,dv_max=20*delta_c,direction='backward')
+dv_array_forward,a_array_forward=find_spectral_response(Pin,T_equilibr=T_max,dv_max=dv_max,N_dv=N_dv,direction='forward')
+dv_array_backward,a_array_backward=find_spectral_response(Pin,T_equilibr=T_max,dv_max=dv_max,N_dv=N_dv,direction='backward')
+#%%
 plt.figure(3)
 plt.clf()
-plt.plot(dv_array_forward,a_array_forward,label='forward')
-plt.plot(dv_array_backward,a_array_backward,label='backward')
+plt.plot(dv_array_forward,a_array_forward,'o',label='forward')
+plt.plot(dv_array_backward,a_array_backward,'x',label='backward')
 a_array_num=np.array(list(map(lambda dv:stationary_solution(Pin,dv),dv_array_forward)))
 plt.plot(dv_array_forward,a_array_num,'.',label='no nonlinearities')
 plt.legend()
 plt.xlabel('detuning, Hz')
 plt.ylabel('Amplitude in the cavity, V/m')
 plt.title('Pin={:.3f}, gain={:.2f}, transmission to amplifier={:.3f}'.format(Pin,gain_small_signal,transmission_from_taper_to_amplifier))
-# plt.savefig('Results\\Pin={:.3f}, gain={:.2f}, transmission to amplifier={:.3f}.png'.format(Pin,gain_small_signal,transmission_from_taper_to_amplifier),dpi=300)
+plt.savefig('Results\\Pin={:.3f}, gain={:.2f}, transmission to amplifier={:.3f}.png'.format(Pin,gain_small_signal,transmission_from_taper_to_amplifier),dpi=300)
 
 # fig=plt.figure(1)
 # for ind,t in enumerate(Times):
