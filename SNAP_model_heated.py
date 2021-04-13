@@ -52,7 +52,7 @@ ESA_parameter=0.15 # Excitated state absorption parameter, from  [Guzman-Chavez 
 # thermal_expansion_coefficient=0.0107*r*1e3 #  nm/K, for effective radius variation
 
 transmission_from_taper_to_amplifier=0.3  # parts, betwee the taper and amplifier
-gain_small_signal=20
+gain_small_signal=10
  # dB, gain of the amplifier guiding to the core
 P_sat=0.08 # W, saturation power for the amplifier
 
@@ -62,8 +62,8 @@ x_slice=2*L/5 # position of the slice
 Properties of the input radiation
 """
 Pin=0.02 # W, power launched through the taper
-dv=50e6 ## Hz, detuning of the pump from the center of the cold resonance 
-d_dv=100e6
+dv=-1e8 ## Hz, detuning of the pump from the center of the cold resonance 
+d_dv=70e6
 dv_period=5e-4
 x_0=L/2 # point where the center of the mode is  and where taper is
 
@@ -234,39 +234,39 @@ time0=time.time()
 
 
 #%%
-# TimeArray,a_array,u,test = solve_model(Pin,dv,T_max=3)
-# fig=plt.figure(1)
-# x=x-L/2
-# plt.plot(x,u)
-# plt.xlabel('position, mm')
-# plt.ylabel('Temperature, $^0$C')
-# plt.figure(2)
-# plt.plot(TimeArray,a_array)
-# plt.xlabel('Time, s')
-# plt.ylabel('amplitude in the cavity, V/m')
-# plt.figure(3)
-# plt.plot(TimeArray,test)
-# plt.xlabel('Time, s')
-# plt.ylabel('Mode temperature, $^0C$')
+timeArray,a_array,T,test = solve_model(Pin,dv,t_max=3)
+fig=plt.figure(1)
+x=x-L/2
+plt.plot(x,T)
+plt.xlabel('position, mm')
+plt.ylabel('Temperature, $^0$C')
+plt.figure(2)
+plt.plot(timeArray,a_array)
+plt.xlabel('Time, s')
+plt.ylabel('amplitude in the cavity, V/m')
+plt.figure(3)
+plt.plot(timeArray,test)
+plt.xlabel('Time, s')
+plt.ylabel('Mode temperature, $^0C$')
 
 
 #%%
 
 # for Pin in np.linspace(1e-3,4e-2,6):
-dv_array_forward,a_array_forward=find_spectral_response(Pin,t_equilibr=t_max,dv_max=dv_max,N_dv=N_dv,direction='forward')
-dv_array_backward,a_array_backward=find_spectral_response(Pin,t_equilibr=t_max,dv_max=dv_max,N_dv=N_dv,direction='backward')
-#%%
-plt.figure(3)
-plt.clf()
-plt.plot(dv_array_forward,a_array_forward,label='forward')
-plt.plot(dv_array_backward,a_array_backward,label='backward')
-a_array_num=np.array(list(map(lambda dv:stationary_solution(Pin,dv),dv_array_forward)))
-plt.plot(dv_array_forward,a_array_num,'.',label='no nonlinearities')
-plt.legend()
-plt.xlabel('detuning, Hz')
-plt.ylabel('Amplitude in the cavity, V/m')
-plt.title('Pin={:.3f}, gain={:.2f}, transmission to amplifier={:.3f}'.format(Pin,gain_small_signal,transmission_from_taper_to_amplifier))
-plt.savefig('Results\\Pin={:.3f}, gain={:.2f}, transmission to amplifier={:.3f}.png'.format(Pin,gain_small_signal,transmission_from_taper_to_amplifier),dpi=300)
+# dv_array_forward,a_array_forward=find_spectral_response(Pin,t_equilibr=t_max,dv_max=dv_max,N_dv=N_dv,direction='forward')
+# dv_array_backward,a_array_backward=find_spectral_response(Pin,t_equilibr=t_max,dv_max=dv_max,N_dv=N_dv,direction='backward')
+# #%%
+# plt.figure(3)
+# plt.clf()
+# plt.plot(dv_array_forward,a_array_forward,label='forward')
+# plt.plot(dv_array_backward,a_array_backward,label='backward')
+# a_array_num=np.array(list(map(lambda dv:stationary_solution(Pin,dv),dv_array_forward)))
+# plt.plot(dv_array_forward,a_array_num,'.',label='no nonlinearities')
+# plt.legend()
+# plt.xlabel('detuning, Hz')
+# plt.ylabel('Amplitude in the cavity, V/m')
+# plt.title('Pin={:.3f}, gain={:.2f}, transmission to amplifier={:.3f}'.format(Pin,gain_small_signal,transmission_from_taper_to_amplifier))
+# plt.savefig('Results\\Pin={:.3f}, gain={:.2f}, transmission to amplifier={:.3f}.png'.format(Pin,gain_small_signal,transmission_from_taper_to_amplifier),dpi=300)
 
 # fig=plt.figure(1)
 # for ind,t in enumerate(Times):
