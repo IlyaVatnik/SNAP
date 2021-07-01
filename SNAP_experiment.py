@@ -4,7 +4,7 @@ Created on Fri Sep 25 16:30:03 2020
 
 @author: Ilya Vatnik
 
-v.1.1
+v.1.2
 """
 
 import numpy as np
@@ -28,6 +28,7 @@ class SNAP():
                  R_0=62.5):
         
         self.R_0=62.5
+        self.refractive_index=1.45
         self.x=x
         self.wavelengths=wavelengths
         self.transmission=transmission
@@ -46,6 +47,7 @@ class SNAP():
             self.transmission_scale='log'
         
     def load_data(self,file_name):
+              
         number_of_axis={'X':0,'Y':1,'Z':2,'W':3,'p':4}
     
         print('loading data for analyzer from ',file_name)
@@ -97,28 +99,47 @@ class SNAP():
         t_f=np.sum(self.transmission[ind-2:ind+2,:],axis=0)
         return (np.sum(t_f*self.x)/np.sum(t_f))
 
-    def plot_spectrogram(self,font_size=11,title=True,vmin=None,vmax=None,cmap='jet',language='eng'):
+    def plot_spectrogram(self,new_figure=True,figsize=None,font_size=11,title=False,vmin=None,vmax=None,
+                         cmap='jet',language='eng',enable_offset=True,
+                         colorbar_location='right',colorbar_pad=0.12,colorbar_title_position='right',colorbar_title_rotation=0):
+        '''
+        Parameters:
+        font_size=11,title=True,vmin=None,vmax=None,cmap='jet',language='eng'
+        '''
         w_0=np.mean(self.wavelengths)
         def _convert_ax_Wavelength_to_Radius(ax_Wavelengths):
             """
             Update second axis according with first axis.
             """
             y1, y2 = ax_Wavelengths.get_ylim()
-            nY1=(y1-self.lambda_0)/w_0*self.R_0*1e3
-            nY2=(y2-self.lambda_0)/w_0*self.R_0*1e3
+            nY1=(y1-self.lambda_0)/w_0*self.R_0*self.refractive_index*1e3
+            nY2=(y2-self.lambda_0)/w_0*self.R_0*self.refractive_index*1e3
             ax_Radius.set_ylim(nY1, nY2)
     
-        fig=plt.figure()
+        
+        if (new_figure) or (figsize!=None):
+            fig=plt.figure(figsize=figsize)
+        else:
+            fig=plt.gcf
+        
         plt.clf()
         matplotlib.rcParams.update({'font.size': font_size})
+        if not enable_offset: plt.rcParams['axes.formatter.useoffset'] = False
         ax_Wavelengths = fig.subplots()
         ax_Radius = ax_Wavelengths.twinx()
         ax_Wavelengths.callbacks.connect("ylim_changed", _convert_ax_Wavelength_to_Radius)
         try:
-            im = ax_Wavelengths.pcolorfast(self.x,self.wavelengths,self.transmission,cmap=cmap,vmin=vmin,vmax=vmax)
+            im = ax_Wavelengths.pcolorfast(self.x,self.wavelengths,self.transmission,50,cmap=cmap,vmin=vmin,vmax=vmax)
         except:
-            im = ax_Wavelengths.contourf(self.x,self.wavelengths,self.transmission,cmap=cmap,vmin=vmin,vmax=vmax)
-        plt.colorbar(im,ax=ax_Radius,pad=0.12)
+            im = ax_Wavelengths.contourf(self.x,self.wavelengths,self.transmission,50,cmap=cmap,vmin=vmin,vmax=vmax)
+        
+        clb=plt.colorbar(im,ax=ax_Radius,pad=colorbar_pad,location=colorbar_location)
+        
+        if self.transmission_scale=='log':
+            if colorbar_title_position=='right':
+                clb.ax.set_ylabel('dB',rotation= colorbar_title_rotation)
+            else:
+                clb.ax.set_title('dB')
         if language=='eng':
             ax_Wavelengths.set_xlabel(r'Position, $\mu$m')
             ax_Wavelengths.set_ylabel('Wavelength, nm')
@@ -133,7 +154,7 @@ class SNAP():
                 plt.title('эксперимент')
         plt.tight_layout()
         self.fig_spectrogram=fig
-        return fig
+        return fig,im,ax_Wavelengths,ax_Radius
     
     
     def plot_spectrum(self,x):
