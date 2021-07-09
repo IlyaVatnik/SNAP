@@ -4,20 +4,20 @@ Created on Fri Sep 25 16:30:03 2020
 
 @author: Ilya Vatnik
 
-v.1.2
+v.2
 """
 
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib
-from . import SNAP_model
+
 import pickle
 import bottleneck as bn
 from scipy import interpolate
 from scipy.optimize import minimize as sp_minimize
 import scipy.signal
 from  scipy.ndimage import center_of_mass
-
+from mpl_toolkits.mplot3d import Axes3D
 
 
 class SNAP():
@@ -29,9 +29,13 @@ class SNAP():
         
         self.R_0=62.5
         self.refractive_index=1.45
-        self.x=x
+        self.x=x  # in microns! 
         self.wavelengths=wavelengths
         self.transmission=transmission
+        self.positions=None # whole three dimensions, in steps!
+        self.axes_number={'X':0,'Y':1,'Z':2,'W':3,'p':4}
+        self.transmission_scale='log'
+        self.axis=0
         
         self.mode_wavelengths=None
         
@@ -48,22 +52,21 @@ class SNAP():
         
     def load_data(self,file_name):
               
-        number_of_axis={'X':0,'Y':1,'Z':2,'W':3,'p':4}
-    
         print('loading data for analyzer from ',file_name)
         f=open(file_name,'rb')
         D=(pickle.load(f))
         f.close()
-        axis=D['axis']
+        self.axis=D['axis']
         Positions=np.array(D['Positions'])
         wavelengths,exp_data=D['Wavelengths'],D['Signal']
-        x=Positions[:,number_of_axis[axis]]*2.5
+        x=Positions[:,self.axes_number[self.axis]]*2.5
         
         self.x=x
         self.wavelengths=wavelengths
         self.transmission=exp_data
         
         self.lambda_0=np.min(wavelengths)
+        self.positions=Positions
         return x,wavelengths,exp_data
     
     def convert_to_lin_transmission(self):
@@ -91,6 +94,8 @@ class SNAP():
         mode_wavelengths=np.array([x for x in mode_wavelengths if x>self.lambda_0])
         self.mode_wavelengths=mode_wavelengths
         return mode_wavelengths
+    
+    
     
     def find_center(self):
         if self.mode_wavelengths is None:
@@ -120,7 +125,7 @@ class SNAP():
         if (new_figure) or (figsize!=None):
             fig=plt.figure(figsize=figsize)
         else:
-            fig=plt.gcf
+            fig=plt.gcf()
         
         plt.clf()
         matplotlib.rcParams.update({'font.size': font_size})
@@ -157,6 +162,18 @@ class SNAP():
         return fig,im,ax_Wavelengths,ax_Radius
     
     
+    def plot_sample_shape(self):
+        fig=plt.figure()
+        ax = plt.axes(projection='3d')
+        ax.plot(self.positions[:,2],self.positions[:,0],self.positions[:,1])
+        ax.set_xlabel('Z,steps')
+        ax.set_ylabel('X,steps')
+        ax.set_zlabel('Y,steps')
+        plt.gca().invert_zaxis()
+        plt.gca().invert_xaxis()
+        return fig
+    
+    
     def plot_spectrum(self,x):
         fig=plt.figure()
         plt.clf()
@@ -165,6 +182,7 @@ class SNAP():
         plt.plot(self.wavelengths,self.transmission[:,index])
         plt.xlabel('Wavelength,nm')
         plt.ylabel('Spectral power density, dBm')
+        return fig
         
         
     
@@ -196,6 +214,27 @@ class SNAP():
         
         if self.fig_spectrogram is not None and indicate_ERV_on_spectrogram:
             self.fig_spectrogram.axes[0].pcolormesh(Positions,WavelengthArray,PeakWavelengthMatrix)
+        elif self.fig_spectrogram is None and indicate_ERV_on_spectrogram:
+            self.fig_spectrogram()
+            self.fig_spectrogram.axes[0].pcolormesh(Positions,WavelengthArray,PeakWavelengthMatrix)
+        elif not indicate_ERV_on_spectrogram:
+            plt.figure()
+            plt.clf()
+            plt.plot(Pos,LineWidthArray)
+            plt.xlabel('Step Number')
+            plt.ylabel('Linewidth, nm')
+            plt.tight_layout()
+            plt.figure()
+            plt.clf()
+            plt.plot(Pos,PeakWavelengthArray,'.')
+            plt.xlabel('Step Number')
+            plt.ylabel('Wavelength, nm')
+            plt.tight_layout()
+            plt.figure()
+            plt.clf()
+            plt.contourf(Positions,self.WavelengthArray,self.Data,200,cmap='jet')
+            plt.pcolormesh(Positions,self.WavelengthArray,PeakWavelengthMatrix)
+            plt.tight_layout()
         return np.array(Pos),ERV,np.array(LineWidthArray)
         
 
