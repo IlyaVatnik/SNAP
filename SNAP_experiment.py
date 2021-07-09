@@ -208,6 +208,7 @@ class SNAP():
                 PeakWavelengthArray.append(WavelengthArray[NewPeakind[0]])
                 PeakWavelengthMatrix[NewPeakind[0],Zind]=-self.transmission[NewPeakind[0],Zind]
                 Pos.append(Positions[Zind])
+                LineWidthArray.append(0)
                 
         lambda_0=np.nanmin(WavelengthArray)
         ERV=(PeakWavelengthArray-lambda_0)/np.nanmean(PeakWavelengthArray)*self.R_0*1e3
@@ -215,7 +216,7 @@ class SNAP():
         if self.fig_spectrogram is not None and indicate_ERV_on_spectrogram:
             self.fig_spectrogram.axes[0].pcolormesh(Positions,WavelengthArray,PeakWavelengthMatrix)
         elif self.fig_spectrogram is None and indicate_ERV_on_spectrogram:
-            self.fig_spectrogram()
+            self.plot_spectrogram()
             self.fig_spectrogram.axes[0].pcolormesh(Positions,WavelengthArray,PeakWavelengthMatrix)
         elif not indicate_ERV_on_spectrogram:
             plt.figure()
@@ -235,7 +236,7 @@ class SNAP():
             plt.contourf(Positions,self.WavelengthArray,self.Data,200,cmap='jet')
             plt.pcolormesh(Positions,self.WavelengthArray,PeakWavelengthMatrix)
             plt.tight_layout()
-        return np.array(Pos),ERV,np.array(LineWidthArray)
+        return np.array(Pos),np.array(PeakWavelengthArray),np.array(ERV),np.array(LineWidthArray)
         
 
 
