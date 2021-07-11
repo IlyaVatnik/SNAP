@@ -3,11 +3,7 @@
 Created on Fri Sep 25 16:30:03 2020
 
 @author: Ilya Vatnik
-<<<<<<< Updated upstream
-
-=======
 matplotlib 3.4.2 is needed! 
->>>>>>> Stashed changes
 v.2
 """
 
@@ -21,11 +17,7 @@ from scipy import interpolate
 from scipy.optimize import minimize as sp_minimize
 import scipy.signal
 from  scipy.ndimage import center_of_mass
-<<<<<<< Updated upstream
-from mpl_toolkits.mplot3d import Axes3D
-=======
 # from mpl_toolkits.mplot3d import Axes3D
->>>>>>> Stashed changes
 
 
 class SNAP():
@@ -153,13 +145,17 @@ class SNAP():
         if position_in_steps_axis:
             ax_steps=ax_Wavelengths.twiny()
             ax_steps.set_xlim([np.min(self.x)/2.5,np.max(self.x)/2.5])
-
-            
-            clb=fig.colorbar(im,ax=ax_steps,pad=colorbar_pad,location=colorbar_location)
+            try:
+                clb=fig.colorbar(im,ax=ax_steps,pad=colorbar_pad,location=colorbar_location)
+            except TypeError:
+                print('WARNING: update matplotlib up to 3.4.2 to plot colorbars properly')
+                clb=fig.colorbar(im,ax=ax_steps,pad=colorbar_pad)
         else:
-            clb=fig.colorbar(im,ax=ax_Radius,pad=colorbar_pad,location=colorbar_location)
-            
-        
+            try:
+                clb=fig.colorbar(im,ax=ax_Radius,pad=colorbar_pad,location=colorbar_location)
+            except TypeError:
+                print('WARNING: update matplotlib up to 3.4.2 to plot colorbars properly')
+                clb=fig.colorbar(im,ax=ax_Radius,pad=colorbar_pad)
 
         if language=='eng':
             ax_Wavelengths.set_xlabel(r'Position, $\mu$m')
@@ -177,6 +173,7 @@ class SNAP():
             try:
                 ax_steps.set_xlabel('Position, steps')
             except: pass 
+        
         elif language=='ru':
             ax_Wavelengths.set_xlabel('Расстояние, мкм')
             ax_Wavelengths.set_ylabel('Длина волны, нм')
@@ -193,6 +190,9 @@ class SNAP():
             try:
                 ax_steps.set_xlabel('Расстояние, шаги')
             except: pass 
+        
+        
+            
         plt.tight_layout()
         self.fig_spectrogram=fig
         return fig,im,ax_Wavelengths,ax_Radius
@@ -210,27 +210,18 @@ class SNAP():
         return fig
     
     
-<<<<<<< Updated upstream
-    def plot_spectrum(self,x):
-=======
     def plot_spectrum(self,x,language='eng'):
->>>>>>> Stashed changes
         fig=plt.figure()
         plt.clf()
         # matplotlib.rcParams.update({'font.size': font_size})
         index=np.argmin(abs(x-self.x))
         plt.plot(self.wavelengths,self.transmission[:,index])
-<<<<<<< Updated upstream
-        plt.xlabel('Wavelength,nm')
-        plt.ylabel('Spectral power density, dBm')
-=======
         if language=='eng':
             plt.xlabel('Wavelength, nm')
             plt.ylabel('Spectral power density, dBm')
         elif language=='ru':
             plt.xlabel('Длина волны, нм')
             plt.ylabel('Спектральная плотность мощности, дБм')
->>>>>>> Stashed changes
         return fig
         
         
@@ -262,61 +253,11 @@ class SNAP():
         ERV=(PeakWavelengthArray-lambda_0)/np.nanmean(PeakWavelengthArray)*self.R_0*self.refractive_index
         
         if self.fig_spectrogram is not None and indicate_ERV_on_spectrogram:
-<<<<<<< Updated upstream
-            self.fig_spectrogram.axes[0].pcolormesh(Positions,WavelengthArray,PeakWavelengthMatrix)
-        elif self.fig_spectrogram is None and indicate_ERV_on_spectrogram:
-            self.plot_spectrogram()
-            self.fig_spectrogram.axes[0].pcolormesh(Positions,WavelengthArray,PeakWavelengthMatrix)
-        elif not indicate_ERV_on_spectrogram:
-            plt.figure()
-            plt.clf()
-            plt.plot(Pos,LineWidthArray)
-            plt.xlabel('Step Number')
-            plt.ylabel('Linewidth, nm')
-            plt.tight_layout()
-            plt.figure()
-            plt.clf()
-            plt.plot(Pos,PeakWavelengthArray,'.')
-            plt.xlabel('Step Number')
-            plt.ylabel('Wavelength, nm')
-            plt.tight_layout()
-            plt.figure()
-            plt.clf()
-            plt.contourf(Positions,self.WavelengthArray,self.Data,200,cmap='jet')
-            plt.pcolormesh(Positions,self.WavelengthArray,PeakWavelengthMatrix)
-            plt.tight_layout()
-        return np.array(Pos),np.array(PeakWavelengthArray),np.array(ERV),np.array(LineWidthArray)
-        
-
-
-
-def _difference_between_exp_and_num(x_exp,exp_data,x_num,num_data,lambdas):
-    f = interpolate.interp2d(x_num, lambdas, num_data, kind='quintic')
-#    print(np.shape(exp_data),np.shape(f(x_exp,lambdas)))
-#    return signal.correlate(exp_data,np.reshape(f(x_exp,lambdas),-1))
-    t=np.sum((exp_data-(f(x_exp,lambdas)))**2)    
-    return t
-
-
-
-def _difference_for_ERV_position(x_0_ERV,*details):
-    ERV_f,ERV_params,x,wavelengths,lambda_0,taper_params,x_exp,signal_exp=details
-    ERV_array=np.squeeze(ERV_f(x,x_0_ERV,ERV_params))
-    SNAP=SNAP_model.SNAP(x,ERV_array,wavelengths,lambda_0)
-    # print(ERV_array)
-    SNAP.set_taper_params(*taper_params)
-    x_num,lambdas,num_data=SNAP.derive_transmission()
-    x_center_num=x_num[int(center_of_mass(num_data)[1])]
-    x_center_exp=x_exp[int(center_of_mass(signal_exp)[1])]
-    t=abs(x_center_exp-x_center_num)
-    print('num={},exp={},difference in mass centers is {}'.format(x_center_num,x_center_exp,t))
-    return t
-=======
             self.fig_spectrogram.axes[0].pcolormesh(Positions,WavelengthArray,PeakWavelengthMatrix,shading='auto')
+            self.fig_spectrogram.canvas.draw()
         elif self.fig_spectrogram is None and indicate_ERV_on_spectrogram:
             self.plot_spectrogram()
             self.fig_spectrogram.axes[0].pcolormesh(Positions,WavelengthArray,PeakWavelengthMatrix,shading='auto')
->>>>>>> Stashed changes
         
         plt.figure()
         plt.plot(Pos,PeakWavelengthArray)
