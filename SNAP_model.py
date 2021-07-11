@@ -3,7 +3,7 @@ Created on Fri Sep 25
 
 @author: Ilya Vatnik
 
-v.1
+v.2
 
 After papers 
 1. Sumetsky, M. Theory of SNAP devices: basic equations and comparison with the experiment. Opt. Express 20, 22537 (2012).
@@ -152,9 +152,16 @@ class SNAP():
         eigvecs=eigvecs/np.sqrt(dx)  # to get normalization for integral (psi**2 dx) =1
         return eigvals,eigvecs
     
-    def GreenFunction(self,eigvals,eigvecs,wavelength):
+    def GreenFunctionXX(self,eigvals,eigvecs,wavelength):
         E=-2*self.k0**2*(wavelength-self.lambda_0)/self.lambda_0
         return bn.nansum(eigvecs**2/(E-eigvals+1j*self.res_width_norm),1) 
+    
+    def GreenFunction(self,eigvals,eigvecs,wavelength,x1,x2):
+        ind_1=np.argmin(abs(self.x-x1))
+        ind_2=np.argmin(abs(self.x-x2))
+        
+        E=-2*self.k0**2*(wavelength-self.lambda_0)/self.lambda_0
+        return bn.nansum(eigvecs[:,ind_1]*eigvecs[:,ind_2]/(E-eigvals+1j*self.res_width_norm),1) 
         
     
     def derive_transmission(self,show_progress=False):
@@ -165,7 +172,7 @@ class SNAP():
         eigvals,eigvecs=self.solve_Shrodinger(U)
         for ii,wavelength in enumerate(self.lambdas):
             if ii%50==0 and show_progress: print('Deriving T for wl={}, {} of {}'.format(wavelength,ii,len(self.lambdas)))
-            G=self.GreenFunction(eigvals,eigvecs,wavelength)
+            G=self.GreenFunctionXX(eigvals,eigvecs,wavelength)
             ComplexTransmission=(taper_S-1j*self.taper_Csquared*G/(1+taper_D*G))  ## 
             T[ii,:]=abs(ComplexTransmission)**2 
         self.need_to_update_transmission=False
@@ -173,6 +180,10 @@ class SNAP():
         if np.amax(T)>1:
             print('Some error in the algorimth! Transmission became larger than 1')
         return self.x, self.lambdas,self.transmission
+    
+    # def derive_transmission_2_tapers(self,show_progress=False,**kwargs):
+        
+        
     
 # =============================================================================
 #     These functions are for debugging
@@ -197,7 +208,7 @@ class SNAP():
         U=-2*self.k0**2*self.ERV*(1e-3)/self.R_0
         eigvals,eigvecs=self.solve_Shrodinger(U)
         for ii,wavelength in enumerate(self.lambdas):
-            G2[ii]=abs(self.GreenFunction(eigvals,eigvecs,wavelength)[index_x])**2
+            G2[ii]=abs(self.GreenFunctionXX(eigvals,eigvecs,wavelength)[index_x])**2
    
         return G2
 ##################################  
