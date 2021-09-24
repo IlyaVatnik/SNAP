@@ -307,9 +307,15 @@ class SNAP():
         with open(f_name,'wb') as f:
             return pickle.dump(self,f)
         
+           
     def print_taper_params(self):
         print('absS={},phaseS={}*pi,ReD={},ImD_exc={},Csquared={}'.format(*self.get_taper_params()))
         
+        
+        
+def load_model(file_name):
+    with open(file_name,'rb') as f:
+        return pickle.load(f)
 
 
 
