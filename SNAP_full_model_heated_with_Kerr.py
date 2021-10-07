@@ -65,7 +65,7 @@ Properties of the input radiation
 Pin=0.02 # W, power launched through the taper
 
 dv=1e8 ## Hz, detuning of the pump from the center of the cold resonance 
-d_dv=70e6
+d_dv=0e6
 dv_period=5e-4
 x_0=L/2 # point where the center of the mode is  and where taper is
 
@@ -85,15 +85,15 @@ def mode_distrib(x): # WGM mode distribution normilized as max(mode_distrib)=1
 grid parameters
 """
 
-t_max=1e-6 # s
+t_max=5e-7 # s
 dv_max=100*(delta_0+delta_c)
-N_dv=200
+N_dv=50
 
 dx=0.05
 # dt = 1/delta_c/6 # also should be no less than dx**2/2/beta
 dt=5e-11 # s
 
-delta_t_to_save=dt*10 # s
+delta_t_to_save=dt*100 # s
 
 '''
 Internal parameters
@@ -173,7 +173,7 @@ def solve_model(Pin,dv,t_max,a=0,T=np.ones(N+1)*T0):
     return time_array,a_array,T,T_averaged_dynamics
 
 def _rhs_modal(F,a,T_averaged_over_mode,t,dv):  # eq. (11.19), p 174 from Gorodetsky
-    return 1j*F-a*(delta_c+delta_0)+a*1j*(thermal_optical_responce*(T_averaged_over_mode-T0)+dv)+ 1j*mu*abs(a)**2
+    return 1j*F-a*(delta_c+delta_0)+a*1j*(thermal_optical_responce*(T_averaged_over_mode-T0)+dv)+ 1j*mu*a*abs(a)**2
 
 def Runge_Kutta_step(F,a,T_averaged_over_mode,t,dv): # forward Runge_Kutta_ 4th order 
     k1=_rhs_modal(F,a,T_averaged_over_mode,t,dv)
@@ -276,7 +276,7 @@ time0=time.time()
 
 #%%
 
-# for Pin in np.linspace(1e-3,4e-2,6):
+# # for Pin in np.linspace(1e-3,4e-2,6):
 dv_array_forward,a_array_forward=find_spectral_response(Pin,t_equilibr=t_max,dv_max=dv_max,N_dv=N_dv,direction='forward')
 dv_array_backward,a_array_backward=find_spectral_response(Pin,t_equilibr=t_max,dv_max=dv_max,N_dv=N_dv,direction='backward')
 #%%
@@ -292,7 +292,7 @@ plt.ylabel('Amplitude in the cavity, V/m')
 plt.title('Pin={:.3f},heat_from_mode={}, gain={:.2f}, transmission to amplifier={:.3f}'.format(Pin,bool(absorption_in_silica),gain_small_signal,transmission_from_taper_to_amplifier))
 plt.savefig('Results\\Pin={:.3f},heat_from_mode={}, gain={:.2f}, transmission to amplifier={:.3f}.png'.format(Pin,bool(absorption_in_silica),gain_small_signal,transmission_from_taper_to_amplifier),dpi=300)
 
-# fig=plt.figure(1)
+# # fig=plt.figure(1)
 # for ind,t in enumerate(Times):
 #     p=plt.plot(x,Uarray[ind,:],label=str(t))
 #     ax=plt.gca()
