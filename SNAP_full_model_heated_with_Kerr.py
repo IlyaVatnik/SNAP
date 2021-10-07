@@ -14,13 +14,14 @@ import matplotlib.pyplot as plt
 import matplotlib.transforms as mtransforms
 import scipy.integrate as integrate
 import time as time_module
+import pickle
 
 
 
 '''
 Constants
 '''
-epsilon_0=8.85418781762039e-15 #F/mm, dielectric constant
+epsilon_0=8.85418781762039e-15 # F/mm, dielectric constant
 c=3e11 #mm/s, speed of light
 """
 Fused silica parameters
@@ -34,10 +35,10 @@ r=20.5e-3 #mm, fiber radius
 specific_heat_capacity=740 # J/kg/K
 density=2.2*1e-3*1e-3 # kg/mm**3
 refractive_index=1.45
-epsilon=1.5**2 #refractive index
+epsilon=refractive_index**2 #refractive index
 absorption_in_silica=3.27e-09 #absorption in silica, 1/mm
 thermal_optical_responce=1.25e9 # Hz/Celcium, detuning of the effective_ra
-hi_3=2.5e-16 #mm**2/ V
+hi_3=2.5e-16 # mm**2/ V
 wavelength_0=1550e-6 # mm
 
 """
@@ -66,7 +67,7 @@ Properties of the input radiation
 """
 Pin=5 # W, power launched through the taper
 
-dv=1e8 ## Hz, detuning of the pump from the center of the cold resonance 
+dv=0e8 ## Hz, detuning of the pump from the center of the cold resonance 
 d_dv=0e6
 dv_period=5e-4
 x_0=L/2 # point where the center of the mode is  and where taper is
@@ -89,12 +90,13 @@ grid parameters
 
 t_max=5e-3 # s
 dv_max=20*(delta_0+delta_c)
-N_dv=100
+N_dv=50
 
 dx=0.05
-# dt = 1/delta_c/6 # also should be no less than dx**2/2/beta
-dt=5e-11 # s
+dt = 1/(delta_c+delta_0)/10 # also should be no less than dx**2/2/beta
+# dt=5e-11 # s
 
+dt_large=1e-5 #s 
 delta_t_to_save=dt*100 # s
 
 '''
@@ -113,6 +115,7 @@ mode_distrib_array=np.array(list(map(mode_distrib,x)))
 mode_distrib_sum=np.sum(mode_distrib_array)
 
 n_steps_to_save=(delta_t_to_save//dt)
+n_steps_to_make_temperature_derivation=(dt_large//dt)
 
 beta = thermal_conductivity/specific_heat_capacity/density
 if dt>dx**2/beta/10:
@@ -145,11 +148,13 @@ def solve_model(Pin,dv,t_max,a=0,T=np.ones(N+1)*T0):
     a_array=[]
     T_averaged_dynamics=[]
     time_start=time_module.time()
+    T_averaged_over_mode=np.sum(T*mode_distrib_array)/mode_distrib_sum
+    
     for n in range(N_t+1):
         
         t+=dt
         dv+=d_dv*np.sin(2*np.pi*t/dv_period)
-        T_averaged_over_mode=np.sum(T*mode_distrib_array)/mode_distrib_sum
+        
         
         # a=a+dt*_rhs_modal(F,a,T_averaged_over_mode,t,dv)
         a=a+dt/6*Runge_Kutta_step(F,a,T_averaged_over_mode,t,dv)
@@ -159,23 +164,25 @@ def solve_model(Pin,dv,t_max,a=0,T=np.ones(N+1)*T0):
         
         if abs(a)>1e10:
             print('unstable simulation. Detuning is too large')
-            TimeArray=np.linspace(0,dt*n,n)
             break
         
-        # if (n%100)==0:
-        T+=dt*rhs_thermal_array(Pin,a,dv,T,T_averaged_over_mode, t)
+        if (n%n_steps_to_make_temperature_derivation)==1:
+            T+=dt_large*rhs_thermal_array(Pin,a,dv,T,T_averaged_over_mode, t)
+            T_averaged_over_mode=np.sum(T*mode_distrib_array)/mode_distrib_sum
         # test.append(heating_from_core(dv,L/2,du_average))
         # test.append(thermal_optical_responce*np.sum((u-T0)*mode_distrib_array/mode_distrib_sum))
+
         if (n%n_steps_to_save)==0:
             time_array.append(t)
             T_array.append(T)
             T_averaged_dynamics.append(T_averaged_over_mode)
             a_array.append(abs(a))
+
         if (n%10000)==1:
-            
+           
             time=time_module.time()
-            time_left=(time-time_start)/n*N_t
-            print('step {} of {}, time left: {} s, or {} min'.format(n,N_t,time_left,time_left/60))
+            time_left=(time-time_start)*(N_t/n-1)
+            print('step {} of {}, time left: {:.2f} s, or {:.2f} min'.format(n,N_t,time_left,time_left/60))
     return time_array,a_array,T,T_averaged_dynamics
 
 def _rhs_modal(F,a,T_averaged_over_mode,t,dv):  # eq. (11.19), p 174 from Gorodetsky
@@ -264,27 +271,28 @@ def find_spectral_response(Pin,dv_max=40*delta_c,N_dv=50,t_equilibr=t_max,direct
 
 #%%
 
-# timeArray,a_array,T,T_averaged_dynamics = solve_model(Pin,dv,t_max=t_max)
-# fig=plt.figure(1)
-# x=x-L/2
-# plt.plot(x,T)
-# plt.xlabel('position, mm')
-# plt.ylabel('Temperature, $^0$C')
-# plt.figure(2)
-# plt.plot(timeArray,a_array)
-# plt.xlabel('Time, s')
-# plt.ylabel('amplitude in the cavity, V/m')
-# plt.figure(3)
-# plt.plot(timeArray,T_averaged_dynamics)
-# plt.xlabel('Time, s')
-# plt.ylabel('Mode temperature, $^0C$')
+timeArray,a_array,T,T_averaged_dynamics = solve_model(Pin,dv,t_max=t_max)
+fig=plt.figure(1)
+x=x-L/2
+plt.plot(x,T)
+plt.xlabel('position, mm')
+plt.ylabel('Temperature, $^0$C')
+plt.figure(2)
+plt.plot(timeArray,a_array)
+plt.xlabel('Time, s')
+plt.ylabel('amplitude in the cavity, V/m')
+plt.figure(3)
+plt.plot(timeArray,T_averaged_dynamics)
+plt.xlabel('Time, s')
+plt.ylabel('Mode temperature, $^0C$')
 
 
 #%%
 
-# # for Pin in np.linspace(1e-3,4e-2,6):
+# for Pin in np.linspace(1e-3,4e-2,6):
 dv_array_forward,a_array_forward=find_spectral_response(Pin,t_equilibr=t_max,dv_max=dv_max,N_dv=N_dv,direction='forward')
 dv_array_backward,a_array_backward=find_spectral_response(Pin,t_equilibr=t_max,dv_max=dv_max,N_dv=N_dv,direction='backward')
+
 #%%
 plt.figure(3)
 plt.clf()
@@ -297,6 +305,8 @@ plt.xlabel('detuning, Hz')
 plt.ylabel('Amplitude in the cavity, V/m')
 plt.title('Pin={:.3f},heat_from_mode={}, gain={:.2f}, transmission to amplifier={:.3f}'.format(Pin,bool(absorption_in_silica),gain_small_signal,transmission_from_taper_to_amplifier))
 plt.savefig('Results\\Pin={:.3f},heat_from_mode={}, gain={:.2f}, transmission to amplifier={:.3f}.png'.format(Pin,bool(absorption_in_silica),gain_small_signal,transmission_from_taper_to_amplifier),dpi=300)
+with open('Results\\results.pkl','wb') as f:
+    pickle.dump([dv_array_forward,a_array_forward,dv_array_backward,a_array_backward],f)
 
 # # fig=plt.figure(1)
 # for ind,t in enumerate(Times):
