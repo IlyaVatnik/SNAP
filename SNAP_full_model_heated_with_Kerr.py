@@ -28,13 +28,15 @@ Fused silica parameters
 thermal_conductivity=1.38*1e-3 # W/mm/K
 heat_exchange=10*1e-6 #W/mm**2/K
 sigma=0.92*5.6e-8*1e-6 #W/mm**2/K**4 Stephan-Boltzman constant
-r=62.5e-3 #mm, fiber radius
+
+r=20.5e-3 #mm, fiber radius
+
 specific_heat_capacity=740 # J/kg/K
 density=2.2*1e-3*1e-3 # kg/mm**3
 refractive_index=1.45
 epsilon=1.5**2 #refractive index
 absorption_in_silica=3.27e-09 #absorption in silica, 1/mm
-thermal_optical_responce=1.25e9  *0 # Hz/Celcium, detuning of the effective_ra
+thermal_optical_responce=1.25e9 # Hz/Celcium, detuning of the effective_ra
 hi_3=2.5e-16 #mm**2/ V
 wavelength_0=1550e-6 # mm
 
@@ -52,7 +54,7 @@ absorption=50 #dB/m , absoprtion in the active core
 ESA_parameter=0.15 # Excitated state absorption parameter, from  [Guzman-Chavez AD, Barmenkov YO, Kir’yanov A V. Spectral dependence of the excited-state absorption of erbium in silica fiber within the 1.48–1.59μm range. Appl Phys Lett 2008;92:191111. https://doi.org/10.1063/1.2926671.]
 # thermal_expansion_coefficient=0.0107*r*1e3 #  nm/K, for effective radius variation
 
-transmission_from_taper_to_amplifier=0.1 *0  # parts, betwee the taper and amplifier
+transmission_from_taper_to_amplifier=0.05  # parts, betwee the taper and amplifier
 gain_small_signal=15
  # dB, gain of the amplifier guiding to the core
 P_sat=0.08 # W, saturation power for the amplifier
@@ -62,7 +64,7 @@ x_slice=2*L/5 # position of the slice
 """
 Properties of the input radiation
 """
-Pin=0.02 # W, power launched through the taper
+Pin=5 # W, power launched through the taper
 
 dv=1e8 ## Hz, detuning of the pump from the center of the cold resonance 
 d_dv=0e6
@@ -74,9 +76,9 @@ Mode properties
 '''
 Gamma=1
 delta_0=100e6 # Hz, spectral width of the resonance due to inner losses
-delta_c=50e6 # Hz, spectral width of the resonance due to coupling
+delta_c=100e6 # Hz, spectral width of the resonance due to coupling
 
-mode_width=0.2 #mm
+mode_width=0.1 #mm
 def mode_distrib(x): # WGM mode distribution normilized as max(mode_distrib)=1
     return np.exp(-(x-x_0)**2/mode_width**2)
 
@@ -86,8 +88,8 @@ grid parameters
 """
 
 t_max=5e-7 # s
-dv_max=100*(delta_0+delta_c)
-N_dv=50
+dv_max=20*(delta_0+delta_c)
+N_dv=100
 
 dx=0.05
 # dt = 1/delta_c/6 # also should be no less than dx**2/2/beta
@@ -180,7 +182,7 @@ def Runge_Kutta_step(F,a,T_averaged_over_mode,t,dv): # forward Runge_Kutta_ 4th 
     k2=_rhs_modal(F,a+k1*dt/2,T_averaged_over_mode,t+dt/2,dv)
     k3=_rhs_modal(F,a+k2*dt/2,T_averaged_over_mode,t+dt/2,dv)
     k4=_rhs_modal(F,a+k3*dt,T_averaged_over_mode,t+dt,dv)
-    return k1+k2+k3+k4
+    return k1+2*k2+2*k3+k4
 
 def _analytical_step_for_WGM_amplitude(F,a,T_averaged_over_mode,t,dv):
     temp=1j*(thermal_optical_responce*(T_averaged_over_mode-T0)+dv)-delta_c-delta_0
