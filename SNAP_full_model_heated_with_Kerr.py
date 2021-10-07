@@ -13,7 +13,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.transforms as mtransforms
 import scipy.integrate as integrate
-import time
+import time as time_module
 
 
 
@@ -87,7 +87,7 @@ def mode_distrib(x): # WGM mode distribution normilized as max(mode_distrib)=1
 grid parameters
 """
 
-t_max=5e-7 # s
+t_max=5e-3 # s
 dv_max=20*(delta_0+delta_c)
 N_dv=100
 
@@ -144,8 +144,9 @@ def solve_model(Pin,dv,t_max,a=0,T=np.ones(N+1)*T0):
     T_array=[]
     a_array=[]
     T_averaged_dynamics=[]
-
+    time_start=time_module.time()
     for n in range(N_t+1):
+        
         t+=dt
         dv+=d_dv*np.sin(2*np.pi*t/dv_period)
         T_averaged_over_mode=np.sum(T*mode_distrib_array)/mode_distrib_sum
@@ -170,8 +171,11 @@ def solve_model(Pin,dv,t_max,a=0,T=np.ones(N+1)*T0):
             T_array.append(T)
             T_averaged_dynamics.append(T_averaged_over_mode)
             a_array.append(abs(a))
-        if (n%10000)==0:
-            print('step ', n,' of ', N_t)
+        if (n%10000)==1:
+            
+            time=time_module.time()
+            time_left=(time-time_start)/n*N_t
+            print('step {} of {}, time left: {} s, or {} min'.format(n,N_t,time_left,time_left/60))
     return time_array,a_array,T,T_averaged_dynamics
 
 def _rhs_modal(F,a,T_averaged_over_mode,t,dv):  # eq. (11.19), p 174 from Gorodetsky
@@ -255,7 +259,7 @@ def find_spectral_response(Pin,dv_max=40*delta_c,N_dv=50,t_equilibr=t_max,direct
 
 
 
-time0=time.time()
+
 
 
 #%%
