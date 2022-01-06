@@ -19,6 +19,9 @@ import pickle
 import scipy.signal
 
 
+# class Taper():
+    
+
 class SNAP():
     
 # =============================================================================
@@ -156,6 +159,8 @@ class SNAP():
         E=-2*self.k0**2*(wavelength-self.lambda_0)/self.lambda_0
         return bn.nansum(eigvecs**2/(E-eigvals+1j*self.res_width_norm),1) 
     
+
+    
     def GreenFunction(self,eigvals,eigvecs,wavelength,x1,x2):
         ind_1=np.argmin(abs(self.x-x1))
         ind_2=np.argmin(abs(self.x-x2))
@@ -163,7 +168,7 @@ class SNAP():
         E=-2*self.k0**2*(wavelength-self.lambda_0)/self.lambda_0
         return bn.nansum(eigvecs[:,ind_1]*eigvecs[:,ind_2]/(E-eigvals+1j*self.res_width_norm),1) 
         
-    
+
     def derive_transmission(self,show_progress=False):
         taper_D=self.D()
         taper_S=self.S()
@@ -181,8 +186,36 @@ class SNAP():
             print('Some error in the algorimth! Transmission became larger than 1')
         return self.x, self.lambdas,self.transmission
     
-    # def derive_transmission_2_tapers(self,show_progress=False,**kwargs):
+    def GreenFunctionForTwoTapers(self,eigvals,eigvecs,wavelength,x_0):
+        ind_1=np.argmin(abs(self.x-x_0))
+        E=-2*self.k0**2*(wavelength-self.lambda_0)/self.lambda_0
+        return bn.nansum(eigvecs[:,ind_1]*eigvecs/(E-eigvals+1j*self.res_width_norm),1) 
+    
+    
+    def derive_transmission_2_tapers(self,x_0,show_progress=False,**kwargs):
+        '''
+        derive transmission between two tapers with equal parameters. Following eq (3) from Crespo-Ballesteros M, Yang Y, Toropov N, Sumetsky M. Four-port SNAP microresonator device. Opt Lett 2019;44:3498. https://doi.org/10.1364/OL.44.003498.
+        z_0 is the position of the input taper
+        '''
         
+        taper_D=self.D()
+        taper_S=self.S()
+        T=np.zeros((len(self.lambdas),len(self.x)))
+        U=-2*self.k0**2*self.ERV*(1e-3)/self.R_0
+        eigvals,eigvecs=self.solve_Shrodinger(U)
+        ind_0=np.argmin(abs(self.x-x_0))
+        psi_0=eigvecs[:,ind_0]
+        for ii,wavelength in enumerate(self.lambdas):
+            if ii%50==0 and show_progress: print('Deriving T for wl={}, {} of {}'.format(wavelength,ii,len(self.lambdas)))
+            E=-2*self.k0**2*(wavelength-self.lambda_0)/self.lambda_0
+            G=bn.nansum(eigvecs[:,ind_0]*eigvecs/(E-eigvals+1j*self.res_width_norm+(eigvecs[:,ind_0]**2+eigvecs**2)*taper_D),1)
+            ComplexTransmission=(taper_S-1j*self.taper_Csquared*G)  ## 
+            T[ii,:]=abs(ComplexTransmission)**2 
+        self.need_to_update_transmission=False
+        self.transmission=T
+        if np.amax(T)>1:
+            print('Some error in the algorimth! Transmission became larger than 1')
+        return self.x, self.lambdas,self.transmission
         
     
 # =============================================================================
