@@ -204,11 +204,10 @@ class SNAP():
         U=-2*self.k0**2*self.ERV*(1e-3)/self.R_0
         eigvals,eigvecs=self.solve_Shrodinger(U)
         ind_0=np.argmin(abs(self.x-x_0))
-        psi_0=eigvecs[:,ind_0]
         for ii,wavelength in enumerate(self.lambdas):
             if ii%50==0 and show_progress: print('Deriving T for wl={}, {} of {}'.format(wavelength,ii,len(self.lambdas)))
             E=-2*self.k0**2*(wavelength-self.lambda_0)/self.lambda_0
-            G=bn.nansum(eigvecs[:,ind_0]*eigvecs/(E-eigvals+1j*self.res_width_norm+(eigvecs[:,ind_0]**2+eigvecs**2)*taper_D),1)
+            G=bn.nansum(np.transpose(eigvecs[:,ind_0])*(eigvecs)/(E-eigvals+1j*self.res_width_norm+(eigvecs[:,ind_0]**2+eigvecs**2)*taper_D),1)
             ComplexTransmission=(taper_S-1j*self.taper_Csquared*G)  ## 
             T[ii,:]=abs(ComplexTransmission)**2 
         self.need_to_update_transmission=False
