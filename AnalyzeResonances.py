@@ -2,22 +2,25 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.fftpack import rfft, irfft, fftfreq
 import scipy.optimize as sciopt
-from ComputingAzimuthalAndRadialModesByGorodetsky import Resonances
+from QuantumNumbersStructure import Resonances
 from scipy.signal import find_peaks
 import pickle 
 
-MinimumPeakDepth=5  ## For peak searching 
+MinimumPeakDepth=8  ## For peak searching 
 MinimumPeakDistance=30 ## For peak searching 
 threshold=0.001
 
 
-Wavelength_min=1545
+Wavelength_min=1540
 Wavelength_max=1557
-p_max_guess=[1,2,3,4,5]
+p_max_guess=[3,4]
+dispersion=True
 
 # FileName1='1.txt'
-FileName='Polarization 1.pkl'
-# FileName='Polarization 2.pkl'
+FileName='examples//Polarization 1.pkl'
+# FileName='examples//Polarization 2.pkl'
+
+polarizations='both'
 
      
 
@@ -32,28 +35,28 @@ def closest_argmin(A, B): # from https://stackoverflow.com/questions/45349561/fi
     return sidx_B[sorted_idx-mask]
     
 def func_to_minimize(param,*args): # try one and another polarization
-    cost=10    
+    def cost(exp,theory):
+        return sum((exp-theory)**4)
+   
     n,R=param
     p_max=args[3]
     exp_resonances=args[2]
     wave_min=args[0]
     wave_max=args[1]
-    resonances=Resonances(wave_min,wave_max,n,R,p_max)
-    th_resonances,labels=resonances.create_unstructured_list('TE')
-    if len(th_resonances)>len(exp_resonances):
+    resonances=Resonances(wave_min,wave_max,n,R,p_max,dispersion=dispersion)
+    if polarizations=='both':
+        th_resonances,labels=resonances.create_unstructured_list('both')
+        closest_indexes=closest_argmin(exp_resonances,th_resonances)   
+        return cost(exp_resonances,th_resonances[closest_indexes])
+        
+    elif polarizations=='single':
+        th_resonances,labels=resonances.create_unstructured_list('TE')
+        closest_indexes=closest_argmin(exp_resonances,th_resonances)   
+        cost_1=cost(exp_resonances,th_resonances[closest_indexes])
+        th_resonances,labels=resonances.create_unstructured_list('TM')
         closest_indexes=closest_argmin(exp_resonances,th_resonances)
-        cost=sum(abs(exp_resonances-th_resonances[closest_indexes]))
-    else:
-        closest_indexes=closest_argmin(th_resonances,exp_resonances)
-        cost=sum(abs(th_resonances-exp_resonances[closest_indexes]))
-    th_resonances,labels=resonances.create_unstructured_list('TM')
-    if len(th_resonances)>len(exp_resonances):
-        closest_indexes=closest_argmin(exp_resonances,th_resonances)
-        cost=sum(abs(exp_resonances-th_resonances[closest_indexes]))
-    else:
-        closest_indexes=closest_argmin(th_resonances,exp_resonances)
-        cost=sum(abs(th_resonances-exp_resonances[closest_indexes]))
-    return cost
+        cost_2=cost(exp_resonances,th_resonances[closest_indexes])
+        return min([cost_1,cost_2])
  
     
 def func_to_minimize_number_of_resonances(param,*args):
@@ -100,8 +103,8 @@ for p in p_max_guess:
     # res=sciopt.minimize(func_to_minimize,((1.45,62.5e3)),bounds=((1.4,1.55),(61.5e3,63.5e3)),
     #                 args=(Wavelength_min,Wavelength_max,Resonances_exp,p),
     #                 method='Nelder-Mead',options={'maxiter':1000})
-    res=sciopt.least_squares(func_to_minimize,((1.45,62.3e3)),bounds=((1.4,1.55),(61.5e3,63.5e3)),
-                    args=(Wavelength_min,Wavelength_max,Resonances_exp,p))
+    res=sciopt.least_squares(func_to_minimize,((1.45,62.5e3)),bounds=((1.4,1.55),(61.5e3,63.5e3)),
+                    args=(Wavelength_min,Wavelength_max,Resonances_exp,p),xtol=1e-9,ftol=1e-9)
     
     print(res)
     if res['fun']<func_min:
@@ -111,7 +114,7 @@ for p in p_max_guess:
 
 
 
-Resonances_th=Resonances(Wavelength_min,Wavelength_max,best_res['x'][0],best_res['x'][1],p_best)
+Resonances_th=Resonances(Wavelength_min,Wavelength_max,best_res['x'][0],best_res['x'][1],p_best,dispersion=dispersion)
 plt.sca(axs[1])
 Resonances_th.plot_all(-1,1,'both')
 axs[1].set_title('N=%d,n=%f,R=%f,p_max=%d' % (Resonances_th.N_of_resonances,best_res['x'][0],best_res['x'][1],p_best))

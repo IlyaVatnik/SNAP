@@ -7,13 +7,18 @@
 ########
 
 __version__='2'
-__date__='2022.05.16'
+__date__='2022.05.17'
 
 import numpy as np
 from scipy import special
+from scipy import optimize
 import matplotlib.pyplot as plt
 
-def ref_index(w):
+
+
+
+def ref_ind(w): # refractive index versus wavelength, w in nm
+    w=w*1e-3
     return np.sqrt(0.6961663*w**2/(w**2-0.0684043**2) +0.4079426*w**2/(w**2-0.1162414**2) +0.8974794*w**2/(w**2-9.896161**2)+1)
 
 def airy_zero(p):
@@ -26,23 +31,30 @@ def T(m,p):
         + (a**3+10)/1400*(m/2)**(-1)-a*(479*a**3-40)/504000*(m/2)**(-5/3)
     return T
 
-def lambda_m_p(m,p,polarization,n,R): # following formula A3 from Demchenko and Gorodetsky
-    if polarization=='TE':
-        P=1
-    elif polarization=='TM':
-        P=1/n**2
-    temp=T(m,p)-n*P/np.sqrt(n**2-1)+airy_zero(p)*(3-2*P**2)*P*n**3*(m/2)**(-2/3)/6/(n**2-1)**(3/2) \
-         - n**2*P*(P-1)*(P**2*n**2+P*n**2-1)*(m/2)**(-1)/4/(n**2-1)**2
-    return 2*np.pi*n*R/temp
 
-def lambda_m_p_with_dispersion(m,p,polarization,n,R): # following formula A3 from Demchenko and Gorodetsky
-    if polarization=='TE':
-        P=1
-    elif polarization=='TM':
-        P=1/n**2
-    temp=T(m,p)-n*P/np.sqrt(n**2-1)+airy_zero(p)*(3-2*P**2)*P*n**3*(m/2)**(-2/3)/6/(n**2-1)**(3/2) \
-         - n**2*P*(P-1)*(P**2*n**2+P*n**2-1)*(m/2)**(-1)/4/(n**2-1)**2
-    return 2*np.pi*n*R/temp
+
+def lambda_m_p(m,p,polarization,n,R,dispersion=False): # following formula A3 from Demchenko and Gorodetsky
+    if not dispersion:
+        if polarization=='TE':
+            P=1
+        elif polarization=='TM':
+            P=1/n**2
+        temp=T(m,p)-n*P/np.sqrt(n**2-1)+airy_zero(p)*(3-2*P**2)*P*n**3*(m/2)**(-2/3)/6/(n**2-1)**(3/2) \
+             - n**2*P*(P-1)*(P**2*n**2+P*n**2-1)*(m/2)**(-1)/4/(n**2-1)**2
+        return 2*np.pi*n*R/temp
+    elif dispersion:
+        if polarization=='TE':
+            res=optimize.root(lambda x: x-2*np.pi*ref_ind(x)*R/(T(m,p)-ref_ind(x)/np.sqrt(ref_ind(x)**2-1)+airy_zero(p)*(3-2)*ref_ind(x)**3*(m/2)**(-2/3)/6/(ref_ind(x)**2-1)**(3/2)),1550)
+            # print(res.success)
+            return res.x[0]
+        elif polarization=='TM':
+            res=optimize.root(lambda x: x-2*np.pi*ref_ind(x)*R/(T(m,p)-1/ref_ind(x)/np.sqrt(ref_ind(x)**2-1)+airy_zero(p)*(3-2*ref_ind(x)**2)*ref_ind(x)*(m/2)**(-2/3)/6/(ref_ind(x)**2-1)**(3/2) \
+             - (1/ref_ind(x)**2-1)*(1/ref_ind(x)**2)*(m/2)**(-1)/4/(ref_ind(x)**2-1)**2),1550)
+            # print(res.success)
+            return res.x[0]
+            
+
+
 
 
 class Resonances():
@@ -66,8 +78,7 @@ class Resonances():
                 m=int(np.floor(m0*( 1 + airy_zero(p)*(2*m0**2)**(-1/3)+ n/(m0*(n**2-1)**0.5))))-3
             else:
                 m=int(np.floor(m0*( 1 + airy_zero(p)*(2*m0**2)**(-1/3)+ 1/n/(m0*(n**2-1)**0.5))))-3
-            if not self.dispersion:
-                wave=lambda_m_p(m,p,Pol,n,R)
+            wave=lambda_m_p(m,p,Pol,n,R,self.dispersion)
             while wave>wave_min and p<self.pmax+1: 
                 resonance_temp_list=[]
                 resonance_m_list=[]
@@ -77,7 +88,7 @@ class Resonances():
                         resonance_m_list.append(m)
                         N+=1
                     m+=1
-                    wave=lambda_m_p(m,p,Pol,n,R)
+                    wave=lambda_m_p(m,p,Pol,n,R,self.dispersion)
                 Temp=np.column_stack((np.array(resonance_temp_list),np.array(resonance_m_list)))
                 self.Structured[Pol].append(Temp)
                 p+=1
@@ -85,7 +96,7 @@ class Resonances():
                     m=np.floor(m0*( 1 + airy_zero(p)*(2*m0**2)**(-1/3)+ n/(m0*(n**2-1)**0.5)))-3
                 else:
                     m=np.floor(m0*( 1 + airy_zero(p)*(2*m0**2)**(-1/3)+ 1/n/(m0*(n**2-1)**0.5)))-3
-                wave=lambda_m_p(m,p,Pol,n,R)
+                wave=lambda_m_p(m,p,Pol,n,R,self.dispersion)
         self.N_of_resonances=N
                 
     def create_unstructured_list(self,Polarizations_to_account):  
@@ -124,14 +135,22 @@ class Resonances():
             y=y_min+(y_max-y_min)/self.pmax*float(labels[i].split(',')[2])
             plt.annotate(labels[i],(wave,y))
             
-
+# def fit_quantum_numbers(Signal,MinimumPeakDepth,MinimumPeakDistance)
             
             
-if __name__=='__main__':   
-    resonances=Resonances(1552,1558,n=1.45,R=62.59e3,p_max=4)
-    tempdict=resonances.__dict__
+if __name__=='__main__': 
+    wave_min=1542
+    wave_max=1558
+    resonances=Resonances(wave_min,wave_max,n=1.45,R=62.59e3,p_max=2,dispersion=True)
+    # tempdict=resonances.__dict__
     plt.figure(2)
     resonances.plot_all(0,1,'both')
-    plt.xlim([1552,1558])
+    plt.xlim([wave_min,wave_max])
+    plt.figure(3)
+    resonances2=Resonances(wave_min,wave_max,n=1.45,R=62.59e3,p_max=2,dispersion=False)
+    # tempdict=resonances.__dict__
+    # plt.figure(2)
+    resonances2.plot_all(0,1,'both')
+    plt.xlim([wave_min,wave_max])
 
 
