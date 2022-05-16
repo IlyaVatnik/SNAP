@@ -1,0 +1,1 @@
+{"P": 25, "laser_spot_radius": 2.45, "laser_focused_spot_width": 0.05, "L_modification": 1, "dx": 0.008333333333333333, "dt": 2.730810520665593e-05}

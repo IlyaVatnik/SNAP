@@ -43,11 +43,11 @@ class SNAP():
         
         self.res_width=res_width    # nm, resonance linewidth corresponding to inner losses of resonator
         self.R_0=R_0                  ## mkm, Fiber radius
-        self.n=n                 ## Cladding refractive index
+        self.refractive_index=n                 ## Cladding refractive index
         
         self.lambda_0=lambda_0  # nm, resonance wavelength for the undisturbed cylinder
-        self.k0=2*np.pi*self.n/(self.lambda_0*1e-3) # in 1/mkm
-        self.res_width_norm=8*np.pi**2*self.n**2/(self.lambda_0*1e-3)**3*self.res_width*1e-3
+        self.k0=2*np.pi*self.refractive_index/(self.lambda_0*1e-3) # in 1/mkm
+        self.res_width_norm=8*np.pi**2*self.refractive_index**2/(self.lambda_0*1e-3)**3*self.res_width*1e-3
 
         
         self.transmission=None
@@ -71,11 +71,11 @@ class SNAP():
         if R_0 is not None:
             self.R_0=R_0                  ## Fiber radius, in um
         if n is not None:
-            self.n=n                 ## Cladding refractive index
+            self.refractive_index=n                 ## Cladding refractive index
         self.need_to_update_transmission=True
             
     def get_fiber_params(self,**a):
-        return self.res_width,self.R_0,self.n
+        return self.res_width,self.R_0,self.refractive_index
             
 
     
@@ -207,7 +207,7 @@ class SNAP():
         for ii,wavelength in enumerate(self.lambdas):
             if ii%50==0 and show_progress: print('Deriving T for wl={}, {} of {}'.format(wavelength,ii,len(self.lambdas)))
             E=-2*self.k0**2*(wavelength-self.lambda_0)/self.lambda_0
-            G=bn.nansum(np.transpose(eigvecs[:,ind_0])*(eigvecs)/(E-eigvals+1j*self.res_width_norm+(eigvecs[:,ind_0]**2+eigvecs**2)*taper_D),1)
+            G=bn.nansum((eigvecs[:,ind_0])*(eigvecs)/(E-eigvals+1j*self.res_width_norm+(eigvecs[:,ind_0]**2+eigvecs**2)*taper_D),1)
             ComplexTransmission=(taper_S-1j*self.taper_Csquared*G)  ## 
             T[ii,:]=abs(ComplexTransmission)**2 
         self.need_to_update_transmission=False
@@ -285,6 +285,7 @@ class SNAP():
     
     def plot_spectrogram(self,scale='lin',ERV_axis=True,plot_ERV=False,amplitude=False):
         wave_max=max(self.lambdas)
+        
         def _convert_ax_Wavelength_to_Radius(ax_Wavelengths):
             """
             Update second axis according with first axis.
@@ -293,6 +294,14 @@ class SNAP():
             nY1=(y1-self.lambda_0)/wave_max*self.R_0*1e3
             nY2=(y2-self.lambda_0)/wave_max*self.R_0*1e3
             ax_Radius.set_ylim(nY1, nY2)
+            
+        def _forward(x):
+            return (x-self.lambda_0)/wave_max*self.R_0*self.refractive_index*1e3
+
+        def _backward(x):
+            return self.lambda_0 + wave_max*x/self.R_0/self.refractive_index/1e3
+    
+    
         if self.need_to_update_transmission:
             self.derive_transmission()
         fig=plt.figure()
@@ -315,13 +324,15 @@ class SNAP():
         ax_Wavelengths.set_xlabel(r'Position, $\mu$m')
         ax_Wavelengths.set_ylabel('Wavelength, nm')
         if ERV_axis:
+            # ax_Radius = ax_Wavelengths.secondary_yaxis('right', functions=(_forward,_backward))
             ax_Radius = ax_Wavelengths.twinx()
             ax_Wavelengths.callbacks.connect("ylim_changed", _convert_ax_Wavelength_to_Radius)
             ax_Radius.set_ylabel('Variation, nm')
         plt.title('simulation')
         if plot_ERV:
             ax_Radius.plot(self.x,self.ERV)
-            plt.gca().set_xlim((self.x[0],self.x[-1]))
+            _convert_ax_Wavelength_to_Radius(ax_Wavelengths)
+            # plt.gca().set_xlim((self.x[0],self.x[-1]))
         plt.tight_layout()
         return fig
     
