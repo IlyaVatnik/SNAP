@@ -19,12 +19,15 @@ MinimumPeakDepth=25  ## For peak searching
 MinimumPeakDistance=2000 ## For peak searching 
 threshold=0.001
 
+dispersion=True
+simplified=False
+
 
 Wavelength_min=1530
 Wavelength_max=1565
 
-FileName1='Polarization 1.pkl'
-FileName2='Polarization 2.pkl'
+FileName1='G:\\!Projects\\!SNAP system\\Modifications\\Flame Modifications\\22.01.11-27 Luna meas of Full range\\Try 1 smaller range\\At Y=1050\\Sp_File Name_X=40_Y=1050_Z=3010_Polarization Dependent Losses_0.pkl'
+FileName2='G:\\!Projects\\!SNAP system\\Modifications\\Flame Modifications\\22.01.11-27 Luna meas of Full range\\Try 1 smaller range\\At Y=1050\\Sp_File Name_X=40_Y=1050_Z=3010_Polarization Dependent Losses_1.pkl'
 
 def get_experimental_data():
     
@@ -71,7 +74,7 @@ n0 = 1.44443
 p0=3
 delta_n = 1e-5
 delta_R = 1e-3
-resonances=Resonances(Wavelength_min,Wavelength_max,n0,R0,p0,dispersion=True)
+resonances=Resonances(Wavelength_min,Wavelength_max,n0,R0,p0,dispersion=dispersion, simplified=simplified)
 tempdict=resonances.__dict__
 resonances.plot_all(0,1,'both')
 plt.xlim([Wavelength_min,Wavelength_max])
@@ -97,7 +100,7 @@ def update(val):
     R = s_R.val
     p=s_p.val
     axs[1].clear()
-    resonances=Resonances(Wavelength_min,Wavelength_max,n,R,p,dispersion=True)    
+    resonances=Resonances(Wavelength_min,Wavelength_max,n,R,p,dispersion=dispersion, simplified=simplified)
     plt.sca(axs[1])
     resonances.plot_all(0,1,'both')
     axs[1].set_title('N=%d,n=%f,R=%f,p_max=%d' % (resonances.N_of_resonances['Total'],n,R,p))
