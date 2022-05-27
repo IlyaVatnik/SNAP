@@ -15,7 +15,7 @@ import matplotlib.transforms as mtransforms
 import scipy.integrate as integrate
 import time as time_module
 import pickle
-
+from numba import jit
 
 
 '''
@@ -30,7 +30,7 @@ thermal_conductivity=1.38*1e-3 # W/mm/K
 heat_exchange=10*1e-6 #W/mm**2/K
 sigma=0.92*5.6e-8*1e-6 #W/mm**2/K**4 Stephan-Boltzman constant
 
-r=20.5e-3 #mm, fiber radius
+r=62.5e-3 #mm, fiber radius
 
 specific_heat_capacity=740 # J/kg/K
 density=2.2*1e-3*1e-3 # kg/mm**3
@@ -88,9 +88,9 @@ def mode_distrib(x): # WGM mode distribution normilized as max(mode_distrib)=1
 grid parameters
 """
 
-t_max=5e-3 # s
+t_max=1e-4 # s
 dv_max=20*(delta_0+delta_c)
-N_dv=50
+N_dv=100
 
 dx=0.05
 dt = 1/(delta_c+delta_0)/10 # also should be no less than dx**2/2/beta
@@ -178,27 +178,29 @@ def solve_model(Pin,dv,t_max,a=0,T=np.ones(N+1)*T0):
             T_averaged_dynamics.append(T_averaged_over_mode)
             a_array.append(abs(a))
 
-        if (n%10000)==1:
+        if (n%50000)==1:
            
             time=time_module.time()
             time_left=(time-time_start)*(N_t/n-1)
             print('step {} of {}, time left: {:.2f} s, or {:.2f} min'.format(n,N_t,time_left,time_left/60))
     return time_array,a_array,T,T_averaged_dynamics
 
+@jit(nopython=True)
 def _rhs_modal(F,a,T_averaged_over_mode,t,dv):  # eq. (11.19), p 174 from Gorodetsky
     return 1j*F-a*(delta_c+delta_0)+a*1j*(thermal_optical_responce*(T_averaged_over_mode-T0)+dv)+ 1j*mu*a*abs(a)**2
-
+@jit(nopython=True)
 def Runge_Kutta_step(F,a,T_averaged_over_mode,t,dv): # forward Runge_Kutta_ 4th order 
     k1=_rhs_modal(F,a,T_averaged_over_mode,t,dv)
     k2=_rhs_modal(F,a+k1*dt/2,T_averaged_over_mode,t+dt/2,dv)
     k3=_rhs_modal(F,a+k2*dt/2,T_averaged_over_mode,t+dt/2,dv)
     k4=_rhs_modal(F,a+k3*dt,T_averaged_over_mode,t+dt,dv)
     return k1+2*k2+2*k3+k4
-
+@jit(nopython=True)
 def _analytical_step_for_WGM_amplitude(F,a,T_averaged_over_mode,t,dv):
     temp=1j*(thermal_optical_responce*(T_averaged_over_mode-T0)+dv)-delta_c-delta_0
     return np.exp(temp*t)*(a+1j*F/temp)-1j*F/temp
 
+# @jit(nopython=True)
 def _rhs_thermal(Pin,a,dv,T,T_averaged_over_mode, t):
     N = len(T) - 1
     rhs = np.zeros(N+1)
@@ -217,16 +219,18 @@ def _rhs_thermal(Pin,a,dv,T,T_averaged_over_mode, t):
 # def dsdt(): # derivative of the u at the left end 
 #     return 0
 
-
+# @jit(nopython=True)
 def _heating_from_WGM(a,x, t): # source distribution
         return abs(a)**2*mode_distrib(x)
-    
+
+@jit(nopython=True)    
 def transmission(dv,T_averaged_over_mode=T0):
     return 1-4*delta_c*delta_0*Gamma**2/((delta_c+delta_0)**2+(dv+(T_averaged_over_mode-T0)*thermal_optical_responce)**2)
 
 def _amplifying_before_core(P):
     return gain_small_signal_lin**(1/(1+P/P_sat))
 
+# @jit(nopython=True)
 def _heating_from_core(Pin,dv,x,T_averaged_over_mode): # source distribution
     if np.size(x)>1:   
         output=np.zeros(np.shape(x))

@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 import matplotlib.transforms as mtransforms
 import json
 import os
+from numba import jit
 
 
 ResultsDirName='Results\\' # folder to save results
@@ -150,6 +151,7 @@ def ode_FE(rhs, U_0, dt,T_array_to_plot):
             print('step ', n,' of ', N_t)
     ERVarrayThroughRelaxation=(np.ones(len(x))-DefectsStrength)*AmountOfRelaxedDefects_To_EVR
     return u, np.array(Uarray), MaxTemperatureList,AnnealedAreaArray,Exposition,ERVarrayThroughRelaxation
+
 
 def rhs(u, t):
     N = len(u) - 1
