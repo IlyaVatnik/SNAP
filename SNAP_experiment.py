@@ -5,8 +5,8 @@ Created on Fri Sep 25 16:30:03 2020
 @author: Ilya Vatnik
 matplotlib 3.4.2 is needed! 
 """
-__version__='8'
-__date__='2022.06.03'
+__version__='9'
+__date__='2022.06.10'
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -23,7 +23,7 @@ from numba import njit
 # from mpl_toolkits.mplot3d import Axes3D
 
 lambda_to_nu=125e3 #MHz/nm
-lambda_to_omega=lambda_to_nu*np.pi*2
+lambda_to_omega=lambda_to_nu*2*np.pi 
 
 class SNAP():
     def __init__(self,
@@ -315,6 +315,59 @@ def get_Fano_fit(waves,signal,peak_wavelength=None):
         print(E)
         return initial_guess,0,waves,Fano_lorenzian(waves,*initial_guess)
     
+    # @njit
+def get_complex_Fano_fit(waves,signal,peak_wavelength=None,height=None):
+    '''
+    fit shape, given in lin scale, with  complex Lorenzian 
+    Gorodetsky, (9.19), p.253
+    
+    may use peak_wavelength
+    return [transmission, Fano_phase, resonance_position,delta_0,delta_c], [x_fitted,Re(y_fitted),Im(y_fitted)]
+    
+    '''
+    signal_abs=np.abs(signal)
+    transmission=np.mean(signal_abs)
+    
+    if peak_wavelength is None:
+        indexes=scipy.signal.find_peaks(signal_abs-transmission,height=height)
+        print(indexes)
+        peak_wavelength=waves[indexes[0][0]]
+
+    peak_wavelength_lower_bound=peak_wavelength-1e-3
+    peak_wavelength_higher_bound=peak_wavelength+1e-3
+    
+    delta_0=300 # MHz
+    delta_c=50 # MHz
+    phase=0.0
+    
+    initial_guess=[transmission,phase,peak_wavelength,delta_0,delta_c]
+    bounds=((0,-1,peak_wavelength_lower_bound,0,0),(1,1,peak_wavelength_higher_bound,np.inf,np.inf))
+    
+    re_im_signal=np.hstack([np.real(signal),np.imag(signal)])
+    
+    try:
+        popt, pcov=scipy.optimize.curve_fit(complex_Fano_lorenzian_splitted,np.hstack([waves,waves]),re_im_signal,p0=initial_guess,bounds=bounds)
+        return popt,pcov, waves, complex_Fano_lorenzian(waves,*popt)
+    except RuntimeError as E:
+        pass
+        print(E)
+        return initial_guess,0,waves,Fano_lorenzian(waves,*initial_guess)
+
+def complex_Fano_lorenzian_splitted(w,transmission,phase,w0,delta_0,delta_c):
+    N=len(w)
+    w_real = w[:N//2]
+    w_imag = w[N//2:]
+    y_real = np.real(complex_Fano_lorenzian(w_real,transmission,phase,w0,delta_0,delta_c))
+    y_imag = np.imag(complex_Fano_lorenzian(w_imag,transmission,phase,w0,delta_0,delta_c))
+    return np.hstack([y_real,y_imag])
+    
+def complex_Fano_lorenzian(w,transmission,phase,w0,delta_0,delta_c):
+    '''
+    delta_0, delta_c is in 2pi*MHz or 1e6/s
+    '''
+    return transmission*np.exp(1j*phase*np.pi) - 2*delta_c/(-1j*(w0-w)*lambda_to_omega+(delta_0+delta_c))
+     
+    
 @njit
 def Fano_lorenzian(w,transmission,phase,w0,delta_0,delta_c,scale='log'):
     '''
@@ -322,7 +375,7 @@ def Fano_lorenzian(w,transmission,phase,w0,delta_0,delta_c,scale='log'):
 
     Modified formula (9.19), p.253 by Gorodetsky
     w is wavelength
-    delta_0, delta_c is in MHz
+    delta_0, delta_c is in 2pi*MHz or 1e6/s
     '''
     
     return 10*np.log10(np.abs(transmission*np.exp(1j*phase*np.pi) - 2*delta_c/(1j*(w0-w)*lambda_to_omega+(delta_0+delta_c)))**2) 
