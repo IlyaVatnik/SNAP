@@ -338,10 +338,11 @@ def get_complex_Fano_fit(waves,signal,peak_wavelength=None,height=None):
     
     delta_0=300 # MHz
     delta_c=50 # MHz
-    phase=0.0
+    total_phase=0
+    fano_phase=0.0
     
-    initial_guess=[transmission,phase,peak_wavelength,delta_0,delta_c]
-    bounds=((0,-1,peak_wavelength_lower_bound,0,0),(1,1,peak_wavelength_higher_bound,np.inf,np.inf))
+    initial_guess=[transmission,total_phase,fano_phase,peak_wavelength,delta_0,delta_c]
+    bounds=((0,-1,-1,peak_wavelength_lower_bound,0,0),(1,1,1,peak_wavelength_higher_bound,np.inf,np.inf))
     
     re_im_signal=np.hstack([np.real(signal),np.imag(signal)])
     
@@ -353,19 +354,19 @@ def get_complex_Fano_fit(waves,signal,peak_wavelength=None,height=None):
         print(E)
         return initial_guess,0,waves,Fano_lorenzian(waves,*initial_guess)
 
-def complex_Fano_lorenzian_splitted(w,transmission,phase,w0,delta_0,delta_c):
+def complex_Fano_lorenzian_splitted(w,transmission,total_phase, fano_phase,w0,delta_0,delta_c):
     N=len(w)
     w_real = w[:N//2]
     w_imag = w[N//2:]
-    y_real = np.real(complex_Fano_lorenzian(w_real,transmission,phase,w0,delta_0,delta_c))
-    y_imag = np.imag(complex_Fano_lorenzian(w_imag,transmission,phase,w0,delta_0,delta_c))
+    y_real = np.real(complex_Fano_lorenzian(w_real,transmission,total_phase, fano_phase,w0,delta_0,delta_c))
+    y_imag = np.imag(complex_Fano_lorenzian(w_imag,transmission,total_phase, fano_phase,w0,delta_0,delta_c))
     return np.hstack([y_real,y_imag])
     
-def complex_Fano_lorenzian(w,transmission,phase,w0,delta_0,delta_c):
+def complex_Fano_lorenzian(w,transmission,total_phase,fano_phase,w0,delta_0,delta_c):
     '''
     delta_0, delta_c is in 2pi*MHz or 1e6/s
     '''
-    return transmission*np.exp(1j*phase*np.pi) - 2*delta_c/(-1j*(w0-w)*lambda_to_omega+(delta_0+delta_c))
+    return np.exp(1j*total_phase*np.pi)*(transmission*np.exp(1j*fano_phase*np.pi) - 2*delta_c/(-1j*(w0-w)*lambda_to_omega+(delta_0+delta_c)))
      
     
 @njit
