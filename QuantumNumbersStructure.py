@@ -6,8 +6,8 @@
 #See formula A3 for lambda_m_p
 ########
 
-__version__='3.3'
-__date__='2022.06.28'
+__version__='3.4'
+__date__='2022.07.07'
 
  
 import numpy as np
@@ -46,7 +46,7 @@ def T(m,p):
         + (a**3+10)/1400*(m/2)**(-1)-a*(479*a**3-40)/504000*(m/2)**(-5/3)-a**2*(20231*a**3+55100)/129360000*(m/2)**(-7/3)
     return T
 
-def lambda_m_p_simplified(medium,m,p,polarization,n,R,dispersion=False): #Using T. Hamidfar et al., “Suppl. Localization of light in an optical microcapillary induced by a droplet,” Optica, vol. 5, no. 4, p. 382, 2018.
+def lambda_m_p_simplified(m,p,polarization,n,R,dispersion=False,medium='SiO2'): #Using T. Hamidfar et al., “Suppl. Localization of light in an optical microcapillary induced by a droplet,” Optica, vol. 5, no. 4, p. 382, 2018.
     if not dispersion:    
         if polarization=='TE':
             temp=( 1 + airy_zero(p)*(2*m**2)**(-1/3)+ n/(m*(n**2-1)**0.5))
@@ -64,7 +64,7 @@ def lambda_m_p_simplified(medium,m,p,polarization,n,R,dispersion=False): #Using 
         
 
 
-def lambda_m_p_cylinder(medium,m,p,polarization,n,R,dispersion=False,simplified=False): # following formula A3 from Demchenko and Gorodetsky
+def lambda_m_p_cylinder(m,p,polarization,n,R,dispersion=False,medium='SiO2',simplified=False): # following formula A3 from Demchenko and Gorodetsky
     if not simplified:
         if not dispersion:
             if polarization=='TE':
@@ -90,7 +90,7 @@ def lambda_m_p_cylinder(medium,m,p,polarization,n,R,dispersion=False,simplified=
     else:
         return lambda_m_p_simplified(medium,m,p,polarization,n,R)
                 
-def lambda_m_p_spheroid(medium,m,p,polarization,n,a,b,dispersion=False,simplified=False): # following formula (15),(17) from Demchenko and Gorodetsky
+def lambda_m_p_spheroid(m,p,polarization,n,a,b,dispersion=False,medium='SiO2',simplified=False): # following formula (15),(17) from Demchenko and Gorodetsky
      if not dispersion:
          if polarization=='TE':
              P=1
@@ -121,11 +121,11 @@ class Resonances():
     ### {Polarization_dict-> list(p_number)-> np.array(m number)}
     
     colormap = plt.cm.gist_ncar #nipy_spectral, Set1,Paired   
-    pmax=10
+    pmax=3
     dispersion=False
     
-    def __init__(self,shape,medium,wave_min,wave_max,n,R,p_max=10,
-                 material_dispersion=False, simplified=False):
+    def __init__(self,wave_min,wave_max,n,R,p_max=3,
+                 material_dispersion=True,shape='cylinder',medium='SiO2', simplified=False):
         m0=np.floor(2*np.pi*n*R/wave_max)
         self.medium=medium
         self.pmax=p_max
@@ -145,7 +145,7 @@ class Resonances():
                 m=int(np.floor(m0*( 1 + airy_zero(p)*(2*m0**2)**(-1/3)+ n/(m0*(n**2-1)**0.5))))-4
             else:
                 m=int(np.floor(m0*( 1 + airy_zero(p)*(2*m0**2)**(-1/3)+ 1/n/(m0*(n**2-1)**0.5))))-4
-            wave=lambda_m_p(medium,m,p,Pol,n,R,self.material_dispersion,simplified= self.simplified)
+            wave=lambda_m_p(m,p,Pol,n,R,self.material_dispersion,self.medium,simplified=self.simplified)
             
             while wave>wave_min and p<self.pmax+1: 
                 resonance_temp_list=[]
@@ -157,7 +157,7 @@ class Resonances():
                         self.N_of_resonances[Pol]+=1
                         self.N_of_resonances['Total']+=1
                     m+=1
-                    wave=lambda_m_p(medium,m,p,Pol,n,R,self.material_dispersion, simplified= self.simplified)
+                    wave=lambda_m_p(m,p,Pol,n,R,self.material_dispersion,self.medium,simplified=self.simplified)
                 
                 Temp=np.column_stack((np.array(resonance_temp_list),np.array(resonance_m_list)))
                 self.structure[Pol].append(Temp)
@@ -166,11 +166,11 @@ class Resonances():
                     m=np.floor(m0*( 1 + airy_zero(p)*(2*m0**2)**(-1/3)+ n/(m0*(n**2-1)**0.5)))-3
                 else:
                     m=np.floor(m0*( 1 + airy_zero(p)*(2*m0**2)**(-1/3)+ 1/n/(m0*(n**2-1)**0.5)))-3
-                wave=lambda_m_p(medium,m,p,Pol,n,R,self.material_dispersion, simplified= self.simplified)
+                wave=lambda_m_p(m,p,Pol,n,R,self.material_dispersion,self.medium,simplified=self.simplified)
         
                 
     def create_unstructured_list(self,Polarizations_to_account):  
-        if Polarizations_to_account=='both':
+        if Polarizations_to_account=='both' or Polarizations_to_account=='single':
             Polarizations=['TE','TM']
         elif Polarizations_to_account=='TE':
             Polarizations=['TE']
@@ -261,7 +261,7 @@ class Fitter():
     def __init__(self,
                  wavelengths,signal,peak_depth,peak_distance,wave_min=None,wave_max=None,
                  p_guess_array=None,dispersion=True,simplified=False,polarization='both',
-                 FFT_filter=True, type_of_optimizer='bruteforce' ):
+                 FFT_filter=False, type_of_optimizer='bruteforce' ):
         
         p_guess_max=5
         
@@ -380,27 +380,26 @@ def bruteforce_optimizer(f,args,R_bounds,R_step):
 if __name__=='__main__': 
     
     # print(lambda_m_p(m=354,p=1,polarization='TM',n=1.445,R=62.5e3,dispersion=True))
-    wave_min=900
-    wave_max=2500
-    n=1.446
-    R=62.5e3
-    medium='SiO2'
-    shape='cylinder'
-    resonances=Resonances(shape,medium,wave_min,wave_max,n,R,p_max=1,material_dispersion=True)
-    resonances.plot_int_dispersion(polarization='TM',p=1)
+    # wave_min=900
+    # wave_max=2500
+    # n=1.446
+    # R=62.5e3
+    # p_max=2
+    # medium='SiO2'
+    # shape='cylinder'
+    # material_dispersion=True
+    # resonances=Resonances(wave_min,wave_max,n,R,p_max,material_dispersion,shape,medium)
+    # resonances.plot_int_dispersion(polarization='TM',p=1)
+
+
+    #%%
     
-    # #%%
-    # plt.figure(3)
-    # resonances2=Resonances(wave_min,wave_max,n,R,p_max,dispersion=False)
-    # # tempdict=resonances.__dict__
-    # resonances2.plot_all(0,1,'both')
-    # plt.xlim([wave_min,wave_max])
-    # filename="G:\!Projects\!SNAP system\Modifications\Bending\\2022.02.25 loop spectra\Processed_spectrogram_at_spot_at_2.0.pkl"
-    # import pickle
-    # with open(filename,'rb') as f:
-    #     Temp=pickle.load(f)
-    # fitter=Fitter(Temp[:,0],Temp[:,1],0.8,100,p_guess_array=[2])
-    # fitter.run()
-    # fitter.plot_results()
+    filename="F:\!Projects\!SNAP system\Modifications\Wire heating\dump_data_at_-2600.0.pkl"
+    import pickle
+    with open(filename,'rb') as f:
+        Temp=pickle.load(f)
+    fitter=Fitter(Temp[:,0],Temp[:,1],0.8,100,p_guess_array=[3],polarization='single',dispersion=False)
+    fitter.run()
+    fitter.plot_results()
 
 

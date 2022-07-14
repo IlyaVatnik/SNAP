@@ -5,8 +5,8 @@ Created on Fri Sep 25 16:30:03 2020
 @author: Ilya Vatnik
 matplotlib 3.4.2 is needed! 
 """
-__version__='9'
-__date__='2022.06.10'
+__version__='10.1'
+__date__='2022.07.07'
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -157,6 +157,8 @@ class SNAP():
                     elif len(peak_indexes)<number_of_peaks_to_search:
                         print(number_of_peaks_to_search-len(peak_indexes))
                         peak_indexes=np.hstack((peak_indexes,np.nan*np.zeros(number_of_peaks_to_search-len(peak_indexes))))
+                else:
+                    print('no peaks found at start position')
             
                 peak_indexes=np.sort(peak_indexes) ##sort in wavelength decreasing
                 window_indexes=[]
@@ -215,9 +217,11 @@ class SNAP():
                                                               depth,linewidth,delta_c,delta_0,N_points_for_fitting])
                         # except:
                         #     print('error while fitting')
-        lambdas_0=np.amin(PeakWavelengthArray,axis=0)
-        ERV=(PeakWavelengthArray-lambdas_0)/np.nanmean(PeakWavelengthArray,axis=0)*self.R_0*self.refractive_index*1e3 # in nm
+        lambdas_0=np.nanmin(PeakWavelengthArray,axis=0)
+        ERV=(PeakWavelengthArray-lambdas_0)/lambdas_0*self.R_0*self.refractive_index*1e3 # in nm
+        
         print('Analyzing finished')
+
 
                 # self.fig_spectrogram_ERV_lines.append[line]
 
@@ -392,13 +396,10 @@ if __name__ == "__main__":
     import pickle
     import matplotlib.pyplot as plt
     os.chdir('..')
-    f='ProcessedData\\2.pkl'
+    
+    f='ProcessedData\\dump_data_resaved.SNAP'
     with open(f,'rb') as file:
-        spectrum=pickle.load(file)
-    plt.plot(spectrum[:,0],spectrum[:,1])
-    [popt, pcov, waves, Fano_lorenzian]=get_Fano_fit(spectrum[:,0],spectrum[:,1],peak_wavelength=1552.165)
-    plt.plot(waves,Fano_lorenzian,color='g')
-    print(popt)
-    plt.figure()
-    plt.plot(spectrum[:,0],10**(spectrum[:,1]/10))
+        Snap=pickle.load(file)
+    
+    Temp=Snap.extract_ERV(find_widths=False)    
     
