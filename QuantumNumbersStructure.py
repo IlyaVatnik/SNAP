@@ -53,9 +53,9 @@ def T(m,p):
         + (a**3+10)/1400*(m/2)**(-1)-a*(479*a**3-40)/504000*(m/2)**(-5/3)-a**2*(20231*a**3+55100)/129360000*(m/2)**(-7/3)
     return T
 
-def lambda_m_p_simplified(m,p,polarization,n,R,dispersion=False,medium='SiO2',temperature=20): #Using T. Hamidfar et al., “Suppl. Localization of light in an optical microcapillary induced by a droplet,” Optica, vol. 5, no. 4, p. 382, 2018.
+def lambda_m_p_simplified(m,p,polarization,n,R_0,dispersion=False,medium='SiO2',temperature=20): #Using T. Hamidfar et al., “Suppl. Localization of light in an optical microcapillary induced by a droplet,” Optica, vol. 5, no. 4, p. 382, 2018.
     
-    R_T= R*(1+thermal_responses[medium][1]*(T-T_0))    
+    R_T= R_0*(1+thermal_responses[medium][1]*(temperature-T_0))    
     if not dispersion:    
         if polarization=='TE':
             temp=( 1 + airy_zero(p)*(2*m**2)**(-1/3)+ n/(m*(n**2-1)**0.5))
@@ -74,7 +74,9 @@ def lambda_m_p_simplified(m,p,polarization,n,R,dispersion=False,medium='SiO2',te
         
 
 
-def lambda_m_p_cylinder(m,p,polarization,n,R,dispersion=False,medium='SiO2',simplified=False, temperature=20): # following formula A3 from Demchenko and Gorodetsky
+def lambda_m_p_cylinder(m,p,polarization,n,R_0,dispersion=False,medium='SiO2',simplified=False, temperature=20): # following formula A3 from Demchenko and Gorodetsky
+    
+    R_T= R_0*(1+thermal_responses[medium][1]*(temperature-T_0))    
     if not simplified:
         if not dispersion:
             if polarization=='TE':
@@ -83,22 +85,22 @@ def lambda_m_p_cylinder(m,p,polarization,n,R,dispersion=False,medium='SiO2',simp
                 P=1/n**2
             temp=T(m,p)-n*P/np.sqrt(n**2-1)+airy_zero(p)*(3-2*P**2)*P*n**3*(m/2)**(-2/3)/6/(n**2-1)**(3/2) \
                  - n**2*P*(P-1)*(P**2*n**2+P*n**2-1)*(m/2)**(-1)/4/(n**2-1)**2
-            return 2*np.pi*n*R/temp
+            return 2*np.pi*n*R_T/temp
         elif dispersion:
             if polarization=='TE':
-                res=optimize.root(lambda x: x-2*np.pi*ref_ind(x,medium,temperature)*R/(T(m,p)-ref_ind(x,medium,temperature)/np.sqrt(ref_ind(x,medium,temperature)**2-1)+
+                res=optimize.root(lambda x: x-2*np.pi*ref_ind(x,medium,temperature)*R_T/(T(m,p)-ref_ind(x,medium,temperature)/np.sqrt(ref_ind(x,medium,temperature)**2-1)+
                                                                     airy_zero(p)*(3-2)*ref_ind(x,medium,temperature)**3*(m/2)**(-2/3)/6/(ref_ind(x,medium,temperature)**2-1)**(3/2)-
                                                                     -0),2000)
                 # print(res.success)
                 return res.x[0]
             elif polarization=='TM':
-                res=optimize.root(lambda x: x-2*np.pi*ref_ind(x,medium,temperature)*R/(T(m,p)-1/ref_ind(x,medium,temperature)/np.sqrt(ref_ind(x,medium,temperature)**2-1)+
+                res=optimize.root(lambda x: x-2*np.pi*ref_ind(x,medium,temperature)*R_T/(T(m,p)-1/ref_ind(x,medium,temperature)/np.sqrt(ref_ind(x,medium,temperature)**2-1)+
                                                                     airy_zero(p)*(3-2*ref_ind(x,medium,temperature)**(-4))*ref_ind(x,medium,temperature)*(m/2)**(-2/3)/6/(ref_ind(x,medium,temperature)**2-1)**(3/2) \
                  - 1*(1/ref_ind(x,medium,temperature)**2-1)*(1/ref_ind(x,medium,temperature)**2)*(m/2)**(-1)/4/(ref_ind(x,medium,temperature)**2-1)**2),1550)
                 # print(res.success)
                 return res.x[0]
     else:
-        return lambda_m_p_simplified(medium,m,p,polarization,n,R,dispersion,medium,simplified, temperature)
+        return lambda_m_p_simplified(medium,m,p,polarization,n,R_0,dispersion,medium,simplified, temperature)
                 
 def lambda_m_p_spheroid(m,p,polarization,n,a,b,dispersion=False,medium='SiO2',simplified=False,temperature=20): # following formula (15),(17) from Demchenko and Gorodetsky
      if not dispersion:
@@ -409,7 +411,7 @@ if __name__=='__main__':
     import pickle
     with open(filename,'rb') as f:
         Temp=pickle.load(f)
-    fitter=Fitter(Temp[:,0],Temp[:,1],0.8,100,p_guess_array=[3],polarization='single',dispersion=True, temperature=21)
+    fitter=Fitter(Temp[:,0],Temp[:,1],0.8,100,p_guess_array=[3],polarization='single',dispersion=True, temperature=25)
     fitter.run()
     fitter.plot_results()
 
