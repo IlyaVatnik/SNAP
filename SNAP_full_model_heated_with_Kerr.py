@@ -2,11 +2,11 @@
 """
 Created on Sun Mar 28 21:11:01 2021
 
-Modification 13.04.2021
-
 Time-dependent numerical solution for temperature distribution along the fiber under local heating with WGM mode
 Following Gorodecky, p.313
 """
+__version__='3'
+__dete__='21.07.2022'
 
 
 import numpy as np
@@ -55,7 +55,7 @@ absorption=50 #dB/m , absoprtion in the active core
 ESA_parameter=0.15 # Excitated state absorption parameter, from  [Guzman-Chavez AD, Barmenkov YO, Kir’yanov A V. Spectral dependence of the excited-state absorption of erbium in silica fiber within the 1.48–1.59μm range. Appl Phys Lett 2008;92:191111. https://doi.org/10.1063/1.2926671.]
 # thermal_expansion_coefficient=0.0107*r*1e3 #  nm/K, for effective radius variation
 
-transmission_from_taper_to_amplifier=0.05  # parts, betwee the taper and amplifier
+transmission_from_taper_to_amplifier=0.00  # parts, betwee the taper and amplifier
 gain_small_signal=15
  # dB, gain of the amplifier guiding to the core
 P_sat=0.08 # W, saturation power for the amplifier
@@ -65,19 +65,19 @@ x_slice=2*L/5 # position of the slice
 """
 Properties of the input radiation
 """
-Pin=5 # W, power launched through the taper
+Pin=0.05 # W, power launched through the taper
 
 dv=0e8 ## Hz, detuning of the pump from the center of the cold resonance 
 d_dv=0e6
-dv_period=5e-4
+dv_period=5e-4 # frequency of pump wavelength oscillating around detuning dv
 x_0=L/2 # point where the center of the mode is  and where taper is
 
 '''
 Mode properties
 '''
 Gamma=1
-delta_0=100e6 # Hz, spectral width of the resonance due to inner losses
-delta_c=100e6 # Hz, spectral width of the resonance due to coupling
+delta_0=10e6 # Hz, spectral width of the resonance due to inner losses
+delta_c=10e6 # Hz, spectral width of the resonance due to coupling
 
 mode_width=0.1 #mm
 def mode_distrib(x): # WGM mode distribution normilized as max(mode_distrib)=1
@@ -88,7 +88,7 @@ def mode_distrib(x): # WGM mode distribution normilized as max(mode_distrib)=1
 grid parameters
 """
 
-t_max=1e-4 # s
+t_max=1e-3 # s
 dv_max=20*(delta_0+delta_c)
 N_dv=100
 
@@ -188,6 +188,7 @@ def solve_model(Pin,dv,t_max,a=0,T=np.ones(N+1)*T0):
 @jit(nopython=True)
 def _rhs_modal(F,a,T_averaged_over_mode,t,dv):  # eq. (11.19), p 174 from Gorodetsky
     return 1j*F-a*(delta_c+delta_0)+a*1j*(thermal_optical_responce*(T_averaged_over_mode-T0)+dv)+ 1j*mu*a*abs(a)**2
+
 @jit(nopython=True)
 def Runge_Kutta_step(F,a,T_averaged_over_mode,t,dv): # forward Runge_Kutta_ 4th order 
     k1=_rhs_modal(F,a,T_averaged_over_mode,t,dv)
@@ -195,6 +196,7 @@ def Runge_Kutta_step(F,a,T_averaged_over_mode,t,dv): # forward Runge_Kutta_ 4th 
     k3=_rhs_modal(F,a+k2*dt/2,T_averaged_over_mode,t+dt/2,dv)
     k4=_rhs_modal(F,a+k3*dt,T_averaged_over_mode,t+dt,dv)
     return k1+2*k2+2*k3+k4
+
 @jit(nopython=True)
 def _analytical_step_for_WGM_amplitude(F,a,T_averaged_over_mode,t,dv):
     temp=1j*(thermal_optical_responce*(T_averaged_over_mode-T0)+dv)-delta_c-delta_0
