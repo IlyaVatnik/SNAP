@@ -5,8 +5,8 @@ Created on Sun Mar 28 21:11:01 2021
 Time-dependent numerical solution for temperature distribution along the fiber under local heating with WGM mode
 Following Gorodecky, p.313
 """
-__version__='3'
-__dete__='21.07.2022'
+__version__='3.1'
+__dete__='05.08.2022'
 
 
 import numpy as np
@@ -38,6 +38,8 @@ refractive_index=1.45
 epsilon=refractive_index**2 #refractive index
 absorption_in_silica=3.27e-09 #absorption in silica, 1/mm
 thermal_optical_responce=1.25e9 # Hz/Celcium, detuning of the effective_ra
+
+
 hi_3=2.5e-16 # mm**2/ V
 wavelength_0=1550e-6 # mm
 
@@ -51,23 +53,23 @@ T0=20 #Celsium, initial temperature of the sample being in equilibrium
 Properties of the heating into the core
 '''
 
-absorption=50 #dB/m , absoprtion in the active core
+absorption=8 #dB/m , absoprtion in the active core
 ESA_parameter=0.15 # Excitated state absorption parameter, from  [Guzman-Chavez AD, Barmenkov YO, Kir’yanov A V. Spectral dependence of the excited-state absorption of erbium in silica fiber within the 1.48–1.59μm range. Appl Phys Lett 2008;92:191111. https://doi.org/10.1063/1.2926671.]
 # thermal_expansion_coefficient=0.0107*r*1e3 #  nm/K, for effective radius variation
 
-transmission_from_taper_to_amplifier=0.00  # parts, betwee the taper and amplifier
-gain_small_signal=15
+transmission_from_taper_to_amplifier=0.54  # parts, betwee the taper and amplifier
+gain_small_signal=20
  # dB, gain of the amplifier guiding to the core
-P_sat=0.08 # W, saturation power for the amplifier
+P_sat=0.025 # W, saturation power for the amplifier
 
 x_slice=2*L/5 # position of the slice
 
 """
 Properties of the input radiation
 """
-Pin=0.05 # W, power launched through the taper
+Pin=0.01 # W, power launched through the taper
 
-dv=0e8 ## Hz, detuning of the pump from the center of the cold resonance 
+dv=80e6 ## Hz, detuning of the pump from the center of the cold resonance 
 d_dv=0e6
 dv_period=5e-4 # frequency of pump wavelength oscillating around detuning dv
 x_0=L/2 # point where the center of the mode is  and where taper is
@@ -75,11 +77,13 @@ x_0=L/2 # point where the center of the mode is  and where taper is
 '''
 Mode properties
 '''
-Gamma=1
-delta_0=10e6 # Hz, spectral width of the resonance due to inner losses
-delta_c=10e6 # Hz, spectral width of the resonance due to coupling
-
+Gamma=-1
+delta_0=50e6 # Hz*pi, spectral width of the resonance due to inner losses
+delta_c=50e6 # Hz*pi, spectral width of the resonance due to coupling
+phase=1 # Fano phase, in pi
 mode_width=0.1 #mm
+nonlinearity=False
+
 def mode_distrib(x): # WGM mode distribution normilized as max(mode_distrib)=1
     return np.exp(-(x-x_0)**2/mode_width**2)
 
@@ -88,16 +92,21 @@ def mode_distrib(x): # WGM mode distribution normilized as max(mode_distrib)=1
 grid parameters
 """
 
-t_max=1e-3 # s
-dv_max=20*(delta_0+delta_c)
-N_dv=100
+t_max=1 # s
+dv_max=120*(delta_0+delta_c)
+N_dv=150
 
 dx=0.05
-dt = 1/(delta_c+delta_0)/10 # also should be no less than dx**2/2/beta
+dt_large=1e-3 #s , for thermal step
+
+
+if nonlinearity:
+    dt = 1/(delta_c+delta_0)/10 # also should be no less than dx**2/2/beta
+else:
+    dt=dt_large
 # dt=5e-11 # s
 
-dt_large=1e-5 #s 
-delta_t_to_save=dt*100 # s
+delta_t_to_save=dt_large*5 # s
 
 '''
 Internal parameters
@@ -108,7 +117,10 @@ x = np.linspace(0, L, N+1)
 T_0 = np.ones(N+1)*T0 #initial temperature distribution
 
 frequency_0=c/wavelength_0
-mu=3*frequency_0*hi_3/8/refractive_index**2*2 # (11.19), p.174 frjm Gorodetsky
+if nonlinearity:
+    mu=3*frequency_0*hi_3/8/refractive_index**2*2 # (11.19), p.174 frjm Gorodetsky
+else:
+    mu=0
 
 Veff=integrate.quad(mode_distrib,-10,10)[0]*2*np.pi*r*2e-3 # effective volume of the WGM
 mode_distrib_array=np.array(list(map(mode_distrib,x)))
@@ -137,28 +149,26 @@ gain_small_signal_lin=10**(gain_small_signal/10)
 
 
 
-def solve_model(Pin,dv,t_max,a=0,T=np.ones(N+1)*T0):
+def solve_model(Pin,dv,t_max,a_initial=0,T=np.ones(N+1)*T0):
     F=np.sqrt(4*Pin*delta_c/epsilon_0/epsilon/Veff)
     N_t=int(t_max/dt)
     # Ensure that any list/tuple returned from f_ is wrapped as array
     rhs_thermal_array = lambda Pin,a,dv,T,T_averaged_over_mode, t: np.asarray(_rhs_thermal(Pin,a,dv,T,T_averaged_over_mode, t))
     t=0
     time_array=[]
-    T_array=[]
     a_array=[]
+    a=a_initial
     T_averaged_dynamics=[]
     time_start=time_module.time()
     T_averaged_over_mode=np.sum(T*mode_distrib_array)/mode_distrib_sum
     
     for n in range(N_t+1):
-        
         t+=dt
-        dv+=d_dv*np.sin(2*np.pi*t/dv_period)
-        
-        
-        # a=a+dt*_rhs_modal(F,a,T_averaged_over_mode,t,dv)
-        a=a+dt/6*Runge_Kutta_step(F,a,T_averaged_over_mode,t,dv)
-        # a=_analytical_step_for_WGM_amplitude(F,a,T_averaged_over_mode,dt,dv)
+        if nonlinearity:
+            dv+=d_dv*np.sin(2*np.pi*t/dv_period)
+            a=a+dt/6*Runge_Kutta_step(F,a,T_averaged_over_mode,t,dv)
+        else:
+            a=_analytical_step_for_WGM_amplitude(F,a,T_averaged_over_mode,dt,dv)
                 
  
         
@@ -166,7 +176,7 @@ def solve_model(Pin,dv,t_max,a=0,T=np.ones(N+1)*T0):
             print('unstable simulation. Detuning is too large')
             break
         
-        if (n%n_steps_to_make_temperature_derivation)==1:
+        if (n%n_steps_to_make_temperature_derivation)==0:
             T+=dt_large*rhs_thermal_array(Pin,a,dv,T,T_averaged_over_mode, t)
             T_averaged_over_mode=np.sum(T*mode_distrib_array)/mode_distrib_sum
         # test.append(heating_from_core(dv,L/2,du_average))
@@ -174,9 +184,9 @@ def solve_model(Pin,dv,t_max,a=0,T=np.ones(N+1)*T0):
 
         if (n%n_steps_to_save)==0:
             time_array.append(t)
-            T_array.append(T)
             T_averaged_dynamics.append(T_averaged_over_mode)
             a_array.append(abs(a))
+            # print(abs(a))
 
         if (n%50000)==1:
            
@@ -227,7 +237,8 @@ def _heating_from_WGM(a,x, t): # source distribution
 
 @jit(nopython=True)    
 def transmission(dv,T_averaged_over_mode=T0):
-    return 1-4*delta_c*delta_0*Gamma**2/((delta_c+delta_0)**2+(dv+(T_averaged_over_mode-T0)*thermal_optical_responce)**2)
+    # return 1+4*delta_c*delta_0*Gamma**2/((delta_c+delta_0)**2+(dv+(T_averaged_over_mode-T0)*thermal_optical_responce)**2)
+    return np.abs(1*np.exp(1j*phase*np.pi) - 2*delta_c/(1j*(-dv+(T_averaged_over_mode-T0)*thermal_optical_responce)+(delta_0+delta_c)))**2
 
 def _amplifying_before_core(P):
     return gain_small_signal_lin**(1/(1+P/P_sat))
@@ -257,16 +268,16 @@ def find_spectral_response(Pin,dv_max=40*delta_c,N_dv=50,t_equilibr=t_max,direct
     if direction=='backward':
         dv_array=np.linspace(dv_max,-dv_max,N_dv)
     a_VS_dv=[]
-    T=np.ones(N+1)*T0
-    a=0
+    Temperatures=np.ones(N+1)*T0
+    a_at_the_end=0
     for ii,dv in enumerate(dv_array):
         print('step={} of {} in {}'.format(ii,N_dv,direction))
         if ii==0:
-            TimeArray,a_array,u,test = solve_model(Pin,dv,t_max_dv_first,a,T)
+            TimeArray,a_array,current_Temps,_ = solve_model(Pin,dv,t_max_dv_first,a_at_the_end,Temperatures)
         else:
-            TimeArray,a_array,u,test = solve_model(Pin,dv,t_max_dv,a,T)
-        a=a_array[-1]
-        a_VS_dv.append(a)
+            TimeArray,a_array,current_Temps,_ = solve_model(Pin,dv,t_max_dv,a_at_the_end,current_Temps)
+        a_at_the_end=a_array[-1]
+        a_VS_dv.append(a_at_the_end)
     return dv_array,np.array(a_VS_dv)
 
 
@@ -277,10 +288,9 @@ def find_spectral_response(Pin,dv_max=40*delta_c,N_dv=50,t_equilibr=t_max,direct
 
 #%%
 
-timeArray,a_array,T,T_averaged_dynamics = solve_model(Pin,dv,t_max=t_max)
+timeArray,a_array,T,T_averaged_dynamics = solve_model(Pin,dv,t_max=t_max,a_initial=0)
 fig=plt.figure(1)
-x=x-L/2
-plt.plot(x,T)
+plt.plot(x-L/2,T)
 plt.xlabel('position, mm')
 plt.ylabel('Temperature, $^0$C')
 plt.figure(2)
@@ -296,23 +306,23 @@ plt.ylabel('Mode temperature, $^0C$')
 #%%
 
 # for Pin in np.linspace(1e-3,4e-2,6):
-dv_array_forward,a_array_forward=find_spectral_response(Pin,t_equilibr=t_max,dv_max=dv_max,N_dv=N_dv,direction='forward')
+# dv_array_forward,a_array_forward=find_spectral_response(Pin,t_equilibr=t_max,dv_max=dv_max,N_dv=N_dv,direction='forward')
 dv_array_backward,a_array_backward=find_spectral_response(Pin,t_equilibr=t_max,dv_max=dv_max,N_dv=N_dv,direction='backward')
 
 #%%
 plt.figure(3)
 plt.clf()
-plt.plot(dv_array_forward,a_array_forward,label='forward')
+# plt.plot(dv_array_forward,a_array_forward,label='forward')
 plt.plot(dv_array_backward,a_array_backward,label='backward')
-a_array_num=np.array(list(map(lambda dv:stationary_solution(Pin,dv),dv_array_forward)))
-plt.plot(dv_array_forward,a_array_num,'.',label='no nonlinearities')
+a_array_num=np.array(list(map(lambda dv:stationary_solution(Pin,dv),dv_array_backward)))
+plt.plot(dv_array_backward,a_array_num,'.',label='no nonlinearities')
 plt.legend()
 plt.xlabel('detuning, Hz')
 plt.ylabel('Amplitude in the cavity, V/m')
 plt.title('Pin={:.3f},heat_from_mode={}, gain={:.2f}, transmission to amplifier={:.3f}'.format(Pin,bool(absorption_in_silica),gain_small_signal,transmission_from_taper_to_amplifier))
 plt.savefig('Results\\Pin={:.3f},heat_from_mode={}, gain={:.2f}, transmission to amplifier={:.3f}.png'.format(Pin,bool(absorption_in_silica),gain_small_signal,transmission_from_taper_to_amplifier),dpi=300)
-with open('Results\\results.pkl','wb') as f:
-    pickle.dump([dv_array_forward,a_array_forward,dv_array_backward,a_array_backward],f)
+# with open('Results\\results.pkl','wb') as f:
+#     pickle.dump([dv_array_forward,a_array_forward,dv_array_backward,a_array_backward],f)
 
 # # fig=plt.figure(1)
 # for ind,t in enumerate(Times):
@@ -325,14 +335,9 @@ with open('Results\\results.pkl','wb') as f:
 # plt.savefig('Distributions for P='+str(Pin)+ '%, T='+str(Times)+'.png')
 
 #%%
-
-# plt.figure(4)
-# delta_c=10e6
-# delta_0=100e6
-# N_dv=100
-# dv_max=30*(delta_c+delta_0)
-# dv_array=np.linspace(dv_max,-dv_max,N_dv)
-# plt.plot(dv_array,list(map(lambda w:transmission(w,T0),dv_array)))
+dv_array=np.linspace(-dv_max,dv_max,N_dv)
+plt.figure(4)
+plt.plot(dv_array,list(map(lambda w:transmission(w,T0),dv_array)))
 
 # plt.figure(5)
 # plt.plot(dv_array,list(map(lambda w:max(_heating_from_core(Pin, w, x, T_averaged_over_mode=T0)),dv_array)))
