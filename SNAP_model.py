@@ -36,10 +36,6 @@ class SNAP():
     
     def __init__(self,x=None,ERV=None,Wavelengths=None,lambda_0=1550,taper_absS=0.9,taper_phaseS=0,taper_ReD=0.0002,taper_ImD_exc=1e-4,taper_Csquared=1e-2,
                  res_width=1e-4,R_0=62.5,n=1.45): # Note that x is in microns!
-        if x is not None:
-            self.ERV=ERV # nm
-            self.x=x  # mkm
-            self.N=len(x)
         
         self.res_width=res_width    # nm, resonance linewidth corresponding to inner losses of resonator
         self.R_0=R_0                  ## mkm, Fiber radius
@@ -48,6 +44,17 @@ class SNAP():
         self.lambda_0=lambda_0  # nm, resonance wavelength for the undisturbed cylinder
         self.k0=2*np.pi*self.refractive_index/(self.lambda_0*1e-3) # in 1/mkm
         self.res_width_norm=8*np.pi**2*self.refractive_index**2/(self.lambda_0*1e-3)**3*self.res_width*1e-3
+        
+        if x is not None:
+            self.ERV=ERV # nm
+            self.x=x  # mkm
+            self.N=len(x)
+            self.U=-2*self.k0**2*self.ERV*(1e-3)/self.R_0/self.refractive_index
+        else:
+            self.ERV=None # nm
+            self.x=None # mkm
+            self.N=None
+            self.U=None
 
         
         self.transmission=None
@@ -60,9 +67,14 @@ class SNAP():
         self.taper_ReD=taper_ReD # 1/mkm
         self.taper_ImD_exc=taper_ImD_exc # 1/mkm
         
+        
+        self.mode_distribs=None
+        self.mode_wavelengths=None
+        
         self.Cmap='jet'
         
         self.ERV_params=None
+        self.fig=None
         
         
     def set_fiber_params(self,res_width=None,R_0=None,n=None):
@@ -144,16 +156,28 @@ class SNAP():
         return self.taper_absS*np.exp(1j*self.taper_phaseS*np.pi)
         
         
-    def solve_Shrodinger(self,U):
+    def solve_Shrodinger(self):
         dx=self.x[1]-self.x[0]
         Tmtx=-1/dx**2*sparse.diags([-2*np.ones(self.N),np.ones(self.N)[1:],np.ones(self.N)[1:]],[0,-1,1]).toarray()
-        Vmtx=np.diag(U)
+        Vmtx=np.diag(self.U)
         Hmtx=Tmtx+Vmtx
-        (eigvals,eigvecs)=la.eigh(Hmtx,check_finite=False)
+        (eigvals,eigvecs)=la.eig(Hmtx,check_finite=False)
         sorted_indexes=np.argsort(np.real(eigvals))
-        eigvals,eigvecs=[eigvals[sorted_indexes],eigvecs[sorted_indexes]]
+        eigvals,eigvecs=[eigvals[sorted_indexes],eigvecs.T[sorted_indexes]]
         eigvecs=eigvecs/np.sqrt(dx)  # to get normalization for integral (psi**2 dx) =1
         return eigvals,eigvecs
+    
+    def find_modes(self,plot_at_spectrogram=False):
+        eigvals,eigvectors=self.solve_Shrodinger()
+        wavelengths=self.lambda_0-eigvals*self.lambda_0/(2*self.k0**2)
+        indexes=np.where(wavelengths>self.lambda_0)
+        self.mode_wavelengths=wavelengths[indexes]
+        self.mode_distribs=eigvectors[indexes]
+        if plot_at_spectrogram:
+            for mode in self.mode_wavelengths:
+                self.fig.axes[0].axhline(mode, color='black')
+        return self.mode_wavelengths,self.mode_distribs.T
+    
     
     def GreenFunctionXX(self,eigvals,eigvecs,wavelength):
         E=-2*self.k0**2*(wavelength-self.lambda_0)/self.lambda_0
@@ -169,12 +193,13 @@ class SNAP():
         return bn.nansum(eigvecs[:,ind_1]*eigvecs[:,ind_2]/(E-eigvals+1j*self.res_width_norm),1) 
         
 
+    
+
     def derive_transmission(self,show_progress=False):
         taper_D=self.D()
         taper_S=self.S()
         T=np.zeros((len(self.lambdas),len(self.x)))
-        U=-2*self.k0**2*self.ERV*(1e-3)/self.R_0
-        eigvals,eigvecs=self.solve_Shrodinger(U)
+        eigvals,eigvecs=self.solve_Shrodinger()
         for ii,wavelength in enumerate(self.lambdas):
             if ii%50==0 and show_progress: print('Deriving T for wl={}, {} of {}'.format(wavelength,ii,len(self.lambdas)))
             G=self.GreenFunctionXX(eigvals,eigvecs,wavelength)
@@ -201,7 +226,7 @@ class SNAP():
         taper_D=self.D()
         taper_S=self.S()
         T=np.zeros((len(self.lambdas),len(self.x)))
-        U=-2*self.k0**2*self.ERV*(1e-3)/self.R_0
+        U=-2*self.k0**2*self.ERV*(1e-3)/self.R_0/self.refractive_index
         eigvals,eigvecs=self.solve_Shrodinger(U)
         ind_0=np.argmin(abs(self.x-x_0))
         for ii,wavelength in enumerate(self.lambdas):
@@ -248,7 +273,7 @@ class SNAP():
 # =============================================================================
 #   processing      
 # =============================================================================
-    def find_modes(self,prominence_factor=3):
+    def find_modes_old(self,prominence_factor=3):
         if self.need_to_update_transmission:
             self.derive_transmission()
         T_shrinked=np.nanmean(abs(self.transmission-np.nanmean(self.transmission,axis=0)),axis=1)
@@ -257,6 +282,7 @@ class SNAP():
         self.mode_wavelengths=np.array([x for x in temp if x>self.lambda_0])
         return self.mode_wavelengths
     
+
     
     def get_spectrum(self,x):
         if self.need_to_update_transmission:
@@ -334,6 +360,7 @@ class SNAP():
             _convert_ax_Wavelength_to_Radius(ax_Wavelengths)
             # plt.gca().set_xlim((self.x[0],self.x[-1]))
         plt.tight_layout()
+        self.fig=fig
         return fig
     
     
@@ -366,15 +393,15 @@ def load_model(file_name):
 if __name__=='__main__':
 
     
-    N=200
+    N=800
     lambda_0=1552.21
-    wave_min,wave_max,res=1552.18,1552.4664, 1e-4
+    wave_min,wave_max,res=1552.24,1552.25, 1e-4
     
-    x=np.linspace(-650,650,N)
+    x=np.linspace(-10000,10000,N)
     lambda_array=np.arange(wave_min,wave_max,res)
     
-    A=2000
-    sigma=5.5934
+    A=4
+    sigma=50
     p=1.1406
     def ERV(x):
         # if abs(x)<=200:
@@ -387,13 +414,16 @@ if __name__=='__main__':
     
     SNAP=SNAP(x,ERV,lambda_array,lambda_0=lambda_0,res_width=1e-4,R_0=62.5)
     SNAP.set_taper_params(absS=np.sqrt(0.8),phaseS=0.0,ReD=0.00,ImD_exc=2e-3,Csquared=0.001)
-    SNAP.plot_spectrogram(plot_ERV=True,scale='log')
+    fig=SNAP.plot_spectrogram(plot_ERV=True,scale='log')
     # plt.xlim((-150,150))
-    SNAP.plot_ERV()
+    # SNAP.plot_ERV()
     SNAP.plot_spectrum(0,scale='log')
     # plt.xlim((1552.46,1552.5))
     # print(SNAP.find_modes())
-    print(SNAP.critical_Csquared())
+    # print(SNAP.critical_Csquared())
+    # modes,m_distribs=SNAP.find_modes(plot_at_spectrogram=True)
+    # plt.figure()
+    # plt.plot(x,m_distribs**2)
     # SNAP.save()
     
     

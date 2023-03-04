@@ -5,9 +5,12 @@ Created on Sun Mar 28 21:11:01 2021
 Time-dependent numerical solution for temperature distribution along the fiber under local heating with WGM mode
 Following Gorodecky, p.313
 """
-__version__='3.1'
-__dete__='05.08.2022'
-
+__version__='3.2'
+'''
+fixed problem with zeta - heating from the WGM mode
+'''
+__dete__='21.10.2022'
+#%%
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -57,17 +60,17 @@ absorption=8 #dB/m , absoprtion in the active core
 ESA_parameter=0.15 # Excitated state absorption parameter, from  [Guzman-Chavez AD, Barmenkov YO, Kir’yanov A V. Spectral dependence of the excited-state absorption of erbium in silica fiber within the 1.48–1.59μm range. Appl Phys Lett 2008;92:191111. https://doi.org/10.1063/1.2926671.]
 # thermal_expansion_coefficient=0.0107*r*1e3 #  nm/K, for effective radius variation
 
-transmission_from_taper_to_amplifier=0.54  # parts, betwee the taper and amplifier
+transmission_from_taper_to_amplifier=0.0  # parts, betwee the taper and amplifier
 gain_small_signal=20
  # dB, gain of the amplifier guiding to the core
-P_sat=0.025 # W, saturation power for the amplifier
+P_sat=0.1 # W, saturation power for the amplifier
 
 x_slice=2*L/5 # position of the slice
 
 """
 Properties of the input radiation
 """
-Pin=0.01 # W, power launched through the taper
+Pin=0.08 # W, power launched through the taper
 
 dv=80e6 ## Hz, detuning of the pump from the center of the cold resonance 
 d_dv=0e6
@@ -77,7 +80,7 @@ x_0=L/2 # point where the center of the mode is  and where taper is
 '''
 Mode properties
 '''
-Gamma=-1
+# Gamma=-1
 delta_0=50e6 # Hz*pi, spectral width of the resonance due to inner losses
 delta_c=50e6 # Hz*pi, spectral width of the resonance due to coupling
 phase=1 # Fano phase, in pi
@@ -97,7 +100,7 @@ dv_max=120*(delta_0+delta_c)
 N_dv=150
 
 dx=0.05
-dt_large=1e-3 #s , for thermal step
+dt_large=1e-4 #s , for thermal step
 
 
 if nonlinearity:
@@ -117,6 +120,7 @@ x = np.linspace(0, L, N+1)
 T_0 = np.ones(N+1)*T0 #initial temperature distribution
 
 frequency_0=c/wavelength_0
+
 if nonlinearity:
     mu=3*frequency_0*hi_3/8/refractive_index**2*2 # (11.19), p.174 frjm Gorodetsky
 else:
@@ -130,6 +134,7 @@ n_steps_to_save=(delta_t_to_save//dt)
 n_steps_to_make_temperature_derivation=(dt_large//dt)
 
 beta = thermal_conductivity/specific_heat_capacity/density
+
 if dt>dx**2/beta/10:
     print('change dt to meet Heat transfer equation requirement')
     dt=dx**2/beta/10
@@ -137,7 +142,8 @@ if dt>dx**2/beta/10:
 gamma=heat_exchange/specific_heat_capacity/density*2/r
 delta=sigma/specific_heat_capacity/density*2/r
 
-modal_heat_const=epsilon_0*epsilon/2/1.5*c*absorption_in_silica
+cross_section=630*1e-6 # mm**2
+modal_heat_const=epsilon_0*epsilon/2/refractive_index*c*absorption_in_silica*cross_section
 zeta=modal_heat_const/density/specific_heat_capacity/(np.pi*r**2)
 
 theta=1/(specific_heat_capacity*np.pi*r**2*density)

@@ -10,7 +10,7 @@ This considers relaxation times as well
 Considering characteristic time t_0
 """
 
-
+#%%
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.transforms as mtransforms
@@ -26,7 +26,7 @@ if not os.path.exists(ResultsDirName):
 '''
 Important laser parameters
 '''
-P=20 # power of the C02 laser in percents
+P=0.2 # power of the C02 laser in percents
 IsMovingBeam=False
 T_laser_on=0.051 #s,  time the beam is standing at the x_0 before sweeping
 T_laser_off=5 #s
@@ -115,13 +115,13 @@ delta=sigma/specific_heat_capacity/density*2/r
 
 f0=Laser_power_absorbed/(np.sqrt(np.pi)*laser_focused_spot_width)/(specific_heat_capacity*density*np.pi*r**2) #checked
 print('Total_exposition_time=',Total_exposition_time,' s')
-T_array_to_plot=np.linspace(0,Total_exposition_time,100) # in sec, Time stamps to save distributions, 
+T_array_to_plot=np.linspace(0,Total_exposition_time,300) # in sec, Time stamps to save distributions, 
 Indexes_to_save= (T_array_to_plot/dt).astype(int)
 N_t=max(Indexes_to_save)
 TimeArray=np.arange(0,N_t+1)*dt
 
 
-
+#%%
 def ode_FE(rhs, U_0, dt,T_array_to_plot):
     # Ensure that any list/tuple returned from f_ is wrapped as array
     rhs_ = lambda u, t: np.asarray(rhs(u, t))
@@ -251,4 +251,42 @@ with open(ResultsDirName+'variables.txt', 'w') as json_file:
     json.dump(Variables, json_file)
 #with open(ResultsDirName+'variables.pkl', 'wb') as f:  # Python 3: open(..., 'wb')
 #    pickle.dump([P,laser_spot_radius,laser_focused_spot_width,L_modification,dx_modification], f)
-##%%
+#
+#%%
+
+average_length=0.5 # mm
+t_start=T_laser_on+1
+t_finish=T_laser_on+5 # seconds
+
+
+
+
+def exponent(x, A,t_0):
+    return A * np.exp(-(x)/t_0) +T0
+
+from scipy.optimize import curve_fit
+
+
+ind_x_min=np.argmin(abs(x-x_beam_0+average_length/2))
+ind_x_max=np.argmin(abs(x-x_beam_0-average_length/2))
+plt.figure(11)
+plt.clf()
+
+ind_finish=np.argmin(abs(T_array_to_plot-t_finish))
+ind_start=np.argmin(abs(T_array_to_plot-t_start))
+
+Temp_averaged=np.mean(Uarray[:,ind_x_min:ind_x_max],axis=1)
+
+plt.plot(T_array_to_plot,Temp_averaged)
+
+Temp_averaged_cutted=Temp_averaged[ind_start:ind_finish]
+time_array_cutted=T_array_to_plot[ind_start:ind_finish]
+p0 = (max(Temp_averaged),  0.1) # start with values near those we expect
+params, cv = curve_fit(exponent, time_array_cutted-T_laser_on, Temp_averaged_cutted, p0)
+A,t_0 = params
+Total_error=np.sqrt(np.sum((Temp_averaged_cutted-np.vectorize(exponent)(time_array_cutted,A,t_0))**2)/len(time_array_cutted))
+plt.plot(T_array_to_plot[ind_start:ind_finish],np.vectorize(exponent)(time_array_cutted,A,t_0))
+plt.text(t_finish,max(Temp_averaged)/2,'t_0={:.4f} s'.format(t_0))
+plt.xlabel('Time,s')
+plt.ylabel('Averaged temperature, Celcium')
+print('A={:4f} degrees, t_0={:.4f} s, standard error={:.4f} degrees'.format(A,t_0,Total_error))
