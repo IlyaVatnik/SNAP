@@ -161,7 +161,7 @@ class SNAP():
         Tmtx=-1/dx**2*sparse.diags([-2*np.ones(self.N),np.ones(self.N)[1:],np.ones(self.N)[1:]],[0,-1,1]).toarray()
         Vmtx=np.diag(self.U)
         Hmtx=Tmtx+Vmtx
-        (eigvals,eigvecs)=la.eig(Hmtx,check_finite=False)
+        (eigvals,eigvecs)=la.eigh(Hmtx,check_finite=False)
         sorted_indexes=np.argsort(np.real(eigvals))
         eigvals,eigvecs=[eigvals[sorted_indexes],eigvecs.T[sorted_indexes]]
         eigvecs=eigvecs/np.sqrt(dx)  # to get normalization for integral (psi**2 dx) =1
