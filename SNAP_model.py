@@ -9,6 +9,8 @@ After papers
 1. Sumetsky, M. Theory of SNAP devices: basic equations and comparison with the experiment. Opt. Express 20, 22537 (2012).
 2. Vitullo, D. L. P., Zaki, S., Jones, D. E., Sumetsky, M. & Brodsky, M. Coupling between waveguides and microresonators: the local approach. Opt. Express 28, 25908 (2020).
 '''
+__version__='2.3'
+__date__='2023.03.16'
 
 import numpy as np
 import bottleneck as bn
@@ -168,6 +170,22 @@ class SNAP():
         return eigvals,eigvecs
     
     def find_modes(self,plot_at_spectrogram=False):
+        '''
+    
+
+        Parameters
+        ----------
+        plot_at_spectrogram : TYPE, optional
+            DESCRIPTION. The default is False.
+
+        Returns
+        -------
+        mode_wavelengths: np array
+            wavelengths in nm 
+        mode_distribs
+            Array of mode distribs.
+
+        '''
         eigvals,eigvectors=self.solve_Shrodinger()
         wavelengths=self.lambda_0-eigvals*self.lambda_0/(2*self.k0**2)
         indexes=np.where(wavelengths>self.lambda_0)

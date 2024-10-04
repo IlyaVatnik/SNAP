@@ -33,6 +33,7 @@ thermal_conductivity=1.38*1e-3 # W/mm/K
 heat_exchange=10*1e-6 #W/mm**2/K
 sigma=0.92*5.6e-8*1e-6 #W/mm**2/K**4 Stephan-Boltzman constant
 
+
 r=62.5e-3 #mm, fiber radius
 
 specific_heat_capacity=740 # J/kg/K
