@@ -3,7 +3,7 @@
 specific_heat_capacity=740 # J/kg/K
 density=2.2*1e-3*1e-3 # kg/mm**3
 thermal_conductivity=1.38*1e-3 # W/mm/K
-refractive_index=1.47
+refractive_index=1.444
 epsilon=refractive_index**2 #refractive index
         #absorption_in_silica=1000*3.27e-09 #absorption in silica, 1/mm
 absorption_in_silica=10*1.035e-6 #absorption in silica, 1/mm
