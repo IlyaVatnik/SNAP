@@ -323,7 +323,7 @@ class SNAP_ThermalModel():
   
             Veff=self.calculate_V_eff(self.x_ERV,psi_distribs[mode_to_pump],self.Seff)
             resonance_wavelength=resonance_wavelengths[mode_to_pump]
-            detuning_v=-2*np.pi*(laser_wavelength-resonance_wavelength)*LIGHT_SPEED/resonance_wavelength**2*1e6 # in 1/s
+            detuning_w=-2*np.pi*(laser_wavelength-resonance_wavelength)*LIGHT_SPEED/resonance_wavelength**2*1e6 # in 1/s
             
             
             if self.delta_0 is None:
@@ -333,7 +333,7 @@ class SNAP_ThermalModel():
                 delta_c=self.delta_c
             
             F=np.sqrt(4*self.pump_powers[ii]*delta_c/EPSILON_0/self.refractive_index**2/Veff)#
-            Amplitude=np.sqrt(F**2/((delta_c+delta_0)**2+detuning_v**2)) 
+            Amplitude=np.sqrt(F**2/((delta_c+delta_0)**2+detuning_w**2)) 
               
             intf= interp1d(self.x_ERV,psi_distribs,axis=1,bounds_error=False,fill_value=0)
             psi_distribs=intf(self.x)
@@ -412,7 +412,28 @@ class SNAP_ThermalModel():
         self.resonances_dynamics=resonances
         return resonances
 
+    def get_transmission(self, resonance_dynamics, pump_wavelengths):
+        detuning_w=-2*np.pi*(pump_wavelengths-resonance_dynamics)*LIGHT_SPEED/self.lambda_0**2*1e6 # in 1/s
+        transmission=1-4*self.delta_0*self.delta_c/((self.delta_0+self.delta_c)**2+detuning_w**2)
+        return transmission
+    
+    
+    def get_amplitude(self, resonance_dynamics, pump_wavelengths,normalized=True):
+        '''
+        amplitude calculated for the linear stationary case
+        if "normalized" - normalized to the maximum of the amplitude
+        '''
+        detuning_w=-2*np.pi*(pump_wavelengths-resonance_dynamics)*LIGHT_SPEED/self.lambda_0**2*1e6 # in 1/s
+        if normalized:
+            a_2=(self.delta_0+self.delta_c)**2/((self.delta_0+self.delta_c)**2+detuning_w**2)
+        else:
+            Veff=self.calculate_V_eff(self.x_ERV,self.psi_distribs[self.mode_to_pump],self.Seff)
+            F=np.sqrt(4*self.pump_powers*self.delta_c/EPSILON_0/self.refractive_index**2/Veff)#
+            a_2=(F**2/((self.delta_c+self.delta_0)**2+detuning_w**2)) 
+      
+        return a_2
         
+    
     def plot_modes_dynamics(self,xaxis='waves',step=20,modes_to_plot=None):
         import matplotlib.cm as cm
         if modes_to_plot is None:
@@ -557,6 +578,7 @@ def plot_Dint_dynamics(resonances_dynamics,mode_to_pump,number_of_modes):
     plt.ylabel(r'$D_{int}^{thermal}$, GHz')
     plt.tight_layout()
          
+
            
 
 

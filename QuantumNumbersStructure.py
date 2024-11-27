@@ -6,8 +6,8 @@
 #See formula A3 for lambda_m_p
 ########
 
-__version__='3.6'
-__date__='2022.07.19'
+__version__='3.7'
+__date__='2024.11.21'
 
  
 import numpy as np
@@ -25,6 +25,10 @@ T_0=20
 Sellmeier_coeffs={
     'SiO2':[0.6961663,0.4079426,0.8974794,0.0684043,0.1162414,9.896161], # at 20 Celcium degree
     'MgF2':[0.48755108,0.39875031,2.3120353, 0.04338408, 0.09461442, 23.793604]}
+'''
+
+
+'''
 
     
 thermal_responses={# thermal optical coefficient, linear expansion coefficient
@@ -157,7 +161,7 @@ class Resonances():
                 m=int(np.floor(m0*( 1 + airy_zero(p)*(2*m0**2)**(-1/3)+ n/(m0*(n**2-1)**0.5))))-4
             else:
                 m=int(np.floor(m0*( 1 + airy_zero(p)*(2*m0**2)**(-1/3)+ 1/n/(m0*(n**2-1)**0.5))))-4
-            wave=lambda_m_p(m,p,Pol,n,R,self.material_dispersion,self.medium,simplified=self.simplified)
+            wave=lambda_m_p(m,p,Pol,n,R,self.material_dispersion,self.medium,simplified=self.simplified,temperature=temperature)
             
             while wave>wave_min and p<self.pmax+1: 
                 resonance_temp_list=[]
@@ -169,7 +173,7 @@ class Resonances():
                         self.N_of_resonances[Pol]+=1
                         self.N_of_resonances['Total']+=1
                     m+=1
-                    wave=lambda_m_p(m,p,Pol,n,R,self.material_dispersion,self.medium,simplified=self.simplified)
+                    wave=lambda_m_p(m,p,Pol,n,R,self.material_dispersion,self.medium,simplified=self.simplified,temperature=temperature)
                 
                 Temp=np.column_stack((np.array(resonance_temp_list),np.array(resonance_m_list)))
                 self.structure[Pol].append(Temp)
@@ -178,7 +182,7 @@ class Resonances():
                     m=np.floor(m0*( 1 + airy_zero(p)*(2*m0**2)**(-1/3)+ n/(m0*(n**2-1)**0.5)))-3
                 else:
                     m=np.floor(m0*( 1 + airy_zero(p)*(2*m0**2)**(-1/3)+ 1/n/(m0*(n**2-1)**0.5)))-3
-                wave=lambda_m_p(m,p,Pol,n,R,self.material_dispersion,self.medium,simplified=self.simplified)
+                wave=lambda_m_p(m,p,Pol,n,R,self.material_dispersion,self.medium,simplified=self.simplified,temperature=temperature)
         
                 
     def create_unstructured_list(self,Polarizations_to_account):  
