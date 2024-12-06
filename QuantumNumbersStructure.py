@@ -6,8 +6,8 @@
 #See formula A3 for lambda_m_p
 ########
 
-__version__='3.7'
-__date__='2024.11.21'
+__version__='3.8'
+__date__='2024.12.03'
 
  
 import numpy as np
@@ -24,7 +24,8 @@ T_0=20
 
 Sellmeier_coeffs={
     'SiO2':[0.6961663,0.4079426,0.8974794,0.0684043,0.1162414,9.896161], # at 20 Celcium degree
-    'MgF2':[0.48755108,0.39875031,2.3120353, 0.04338408, 0.09461442, 23.793604]}
+    'MgF2':[0.48755108,0.39875031,2.3120353, 0.04338408, 0.09461442, 23.793604],
+    'TZNL':[1.3760,82.1547,1.4692,0.2233642,100.0014126,1e-16]}
 '''
 
 
@@ -33,7 +34,8 @@ Sellmeier_coeffs={
     
 thermal_responses={# thermal optical coefficient, linear expansion coefficient
         
-    'SiO2':[8.6*1e-6,0.55*1e-6]   }
+    'SiO2':[8.6*1e-6,0.55*1e-6],
+    'TZNL':[8.6*1e-6,0.55*1e-6]}  ### Should be other parameters!!!!!
 
 def ref_ind(w,medium,T): # refractive index for quarzt versus wavelength, w in nm
  

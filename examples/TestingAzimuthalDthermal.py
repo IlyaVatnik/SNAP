@@ -10,7 +10,7 @@ import numpy as np
 wave_min = 1500
 wave_max = 1600
 n = 1.45
-R = 62514
+R = 200514
 p_max = 5
 medium='SiO2'
 shape='cylinder'

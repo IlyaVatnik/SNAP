@@ -95,6 +95,8 @@ class SNAP_ThermalModel():
         
         self.resonances_dynamics=None
         
+        self.secondary_pump_powers=None
+        
     
     
     def set_active_cooling(self,active_heat_exchange,length):
@@ -156,6 +158,19 @@ class SNAP_ThermalModel():
             self.follow_resonance=False
             self.pump_detunings=np.zeros(len(times))
         
+    def set_secondary_pump_parameters(self,powers,wavelengths=None,detunings=None,mode_to_pump=None):
+        '''
+        times in s, powers in W, wavelengths in nm, detuning in nm
+        '''
+        self.secondary_pump_powers=powers
+        if wavelengths is None:
+            self.secondary_pump_detunings=detunings
+            self.secondary_mode_to_pump=mode_to_pump
+        else:
+            self.secondary_pump_wavelengths=wavelengths
+            
+            
+    
         
     def set_deltas(self,delta_0,delta_c):
         self.delta_0=delta_0
@@ -339,9 +354,18 @@ class SNAP_ThermalModel():
             psi_distribs=intf(self.x)
             source=self.zeta*self.Seff*np.power(np.abs(Amplitude),2)*np.power(np.abs(psi_distribs[mode_to_pump]),2)
             
+       
             # source[ind1:ind2]=self.zeta*self.Seff*np.power(np.abs(Amplitude),2)*np.power(np.abs(psi_distribs[mode_to_pump]),2)
             
             source[self.taper_position_index]+=self.taper_losses*self.pump_powers[ii]*self.theta/(self.x[self.taper_position_index]-self.x[self.taper_position_index-1])
+            
+            if self.secondary_pump_powers is not None:
+                F_2=np.sqrt(4*self.secondary_pump_powers[ii]*delta_c/EPSILON_0/self.refractive_index**2/Veff)#
+                Amplitude_2=np.sqrt(F**2/((delta_c+delta_0)**2+detuning_w**2)) 
+                secondary_source=self.zeta*self.Seff*np.power(np.abs(Amplitude_2),2)*np.power(np.abs(psi_distribs[self.secondary_mode_to_pump]),2)
+                source+=  secondary_source    
+                
+                
             # print(max(source))
             self.T=self.solve_temper_model_with_source(dt,self.times[ii+1]-self.times[ii],
                                                        np.asarray(self.T,dtype=np.float32),np.asarray(source,dtype=np.float32))
@@ -399,10 +423,10 @@ class SNAP_ThermalModel():
         else:
             Tmtx=None
         
-        E,_=self.solve_Shrodinger(ERV,Tmtx)
+        E,psi_distribs=self.solve_Shrodinger(ERV,Tmtx)
         resonance_wavelengths,_=self.get_detunings_from_energies(E)
 
-        return resonance_wavelengths
+        return resonance_wavelengths,(dense_x,psi_distribs)
         
     def get_modes_dynamics(self):
         resonances=[]
