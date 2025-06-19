@@ -28,7 +28,8 @@ simplified=False
 Wavelength_min=None
 Wavelength_max=None
 
-FileName1="G:\!Projects\!SNAP system\Modifications\Bending\\2022.02.25 loop spectra\Processed_spectrogram_at_spot_at_2.0.pkl"
+FileName1="F:\!Projects\!SNAP system\Modifications\Bending\\2022.02.25 loop spectra\Processed_spectrogram_at_spot_at_2.0.pkl"
+# FileName1=None
 FileName2=None
 
 

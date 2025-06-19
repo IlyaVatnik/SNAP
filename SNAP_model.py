@@ -20,6 +20,7 @@ import matplotlib.pyplot as plt
 import pickle
 import scipy.signal
 
+LIGHT_SPEED=299792458*1e-3 # mkm/ns
 
 # class Taper():
     
@@ -168,6 +169,14 @@ class SNAP():
         eigvals,eigvecs=[eigvals[sorted_indexes],eigvecs.T[sorted_indexes]]
         eigvecs=eigvecs/np.sqrt(dx)  # to get normalization for integral (psi**2 dx) =1
         return eigvals,eigvecs
+
+    def get_delay(self,z1,z2,wavelength):
+        ind1=np.argmin(abs(z1-self.x))
+        ind2=np.argmin(abs(z2-self.x))
+        integral=self.refractive_index/LIGHT_SPEED*scipy.integrate.trapezoid(1/np.sqrt(1-(wavelength/self.lambda_0)**2 * (1-2*self.ERV[ind1:ind2]*(1e-3)/self.R_0/self.refractive_index)),
+                                                                             dx=self.x[1]-self.x[0])
+        return integral 
+
     
     def find_modes(self,plot_at_spectrogram=False):
         '''
