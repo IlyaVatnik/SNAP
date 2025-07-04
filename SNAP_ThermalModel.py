@@ -6,8 +6,8 @@ Created on Tue Apr 11 16:47:39 2023
 """
 
 
-__date__='2025.06.17'
-__version__='1.2'
+__date__='2025.07.02'
+__version__='1.3'
 
 import numpy as np
 from numba import njit
@@ -100,28 +100,29 @@ class SNAP_ThermalModel():
         self.active_cooling=False
         
         temp=importlib.util.spec_from_file_location("medium_name",pathname+"\\media_params\\"+medium_name+'.py')
-        medium = importlib.util.module_from_spec(temp)
-        temp.loader.exec_module(medium)
+        self.medium = importlib.util.module_from_spec(temp)
+        temp.loader.exec_module(self.medium)
         
-        self.medium_heat_exchange=medium.heat_exchange
         
-        self.beta=medium.thermal_conductivity/medium.specific_heat_capacity/medium.density
-        self.gamma=medium.heat_exchange/medium.specific_heat_capacity/medium.density*2*r_out/(r_out**2-r_in**2)
-        self.delta=SIGMA/medium.specific_heat_capacity/medium.density*2*r_out/(r_out**2-r_in**2)    
+        
+        self.beta=self.medium.thermal_conductivity/self.medium.specific_heat_capacity/self.medium.density
+        self.gamma=self.medium.heat_exchange/self.medium.specific_heat_capacity/self.medium.density*2*r_out/(r_out**2-r_in**2)
+        self.delta=SIGMA/self.medium.specific_heat_capacity/self.medium.density*2*r_out/(r_out**2-r_in**2)    
             
         if absorption is None: # if no absorption specified, take the volumetric absorption of the material
-            modal_heat_const=EPSILON_0*medium.refractive_index*LIGHT_SPEED*medium.absorption/2
+            modal_heat_const=EPSILON_0*self.medium.refractive_index*LIGHT_SPEED*self.medium.absorption/2
         else:
-            modal_heat_const=EPSILON_0*medium.refractive_index*LIGHT_SPEED*absorption/2
+            modal_heat_const=EPSILON_0*self.medium.refractive_index*LIGHT_SPEED*absorption/2
         # note that zeta should be muplyplied by Seff, depending on specific mode
-        self.zeta=modal_heat_const/medium.density/medium.specific_heat_capacity/(np.pi*r_out**2) # without Seff!
-        self.theta=1/(medium.specific_heat_capacity*np.pi*r_out**2*medium.density)
+        self.zeta=modal_heat_const/self.medium.density/self.medium.specific_heat_capacity/(np.pi*r_out**2) # without Seff!
+        self.theta=1/(self.medium.specific_heat_capacity*np.pi*r_out**2*self.medium.density)
         
-        self.thermal_optical_coefficient=medium.thermal_optical_coefficient
+        self.thermal_optical_coefficient=self.medium.thermal_optical_coefficient
         
         self.delta_0=None
         self.delta_c=None
         
+        self.recalculating_modes=False
         self.resonances_dynamics=None
         
         self.laser_pumping=False
@@ -135,6 +136,12 @@ class SNAP_ThermalModel():
         self.CO2_focused_spot_width=None
         self.CO2_spot_radius=None
         
+        '''
+        for ERV estimation
+        '''
+        
+        
+        
     
     
     def set_active_cooling(self,active_heat_exchange,active_cooling_length):
@@ -145,10 +152,57 @@ class SNAP_ThermalModel():
         self.active_cooling=True
         index=np.argmin(abs(self.x-(self.x[0]+active_cooling_length)))
         self.gamma_array=np.ones(len(self.x))*self.gamma
-        self.gamma_array[0:index]=self.gamma/self.medium_heat_exchange*active_heat_exchange
-        self.gamma_array[-index:]=self.gamma/self.medium_heat_exchange*active_heat_exchange
+        self.gamma_array[0:index]=self.gamma/self.medium.heat_exchange*active_heat_exchange
+        self.gamma_array[-index:]=self.gamma/self.medium.heat_exchange*active_heat_exchange
   
     
+    # @njit(parallel=True)
+    def estimate_ERV_through_relaxation(self):
+        '''
+        Fast and correct vectorized version for estimating ERV.
+        '''
+        DefectsStrength = np.ones(len(self.x), dtype=np.float32)
+        ERV_dynamics = np.zeros((len(self.times), len(self.x)), dtype=np.float32)
+        
+        # Precompute all dt values (times[ii+1] - times[ii] for ii in 0...N-2)
+        dt_all = np.diff(self.times)  # length is len(times)-1
+        
+        for ii in range(len(self.times)-1):  # ii ranges from 0 to len(times)-2
+            T = self.T_dynamics[ii+1]  # matches original: T_dynamics[1:] starts at index 1
+            
+            # Vectorized computation
+            t_relaxation = self.medium.viscosity(T) / self.medium.Young_modulus
+            exp_factor = np.exp(-dt_all[ii] / t_relaxation)
+            
+            mask = T > (self.medium.T_annealing - 200)
+            DefectsStrength *= np.where(mask, exp_factor, 1.0)
+            
+            # ERV_dynamics[ii+1] because we're processing step ii but storing in ii+1
+            ERV_dynamics[ii+1] = ((1.0 - DefectsStrength) * 
+                                 self.medium.maximum_ERV_per_square_mm * 
+                                 np.pi * self.r**2)
+        
+        final_ERV = (1.0 - DefectsStrength) * self.medium.maximum_ERV_per_square_mm * np.pi * self.r**2
+        return final_ERV, ERV_dynamics
+  
+    def estimate_ERV_through_relaxation_old(self):
+        '''
+        estimating ERV appearing during the whole process of heating
+        '''
+        
+
+        DefectsStrength=np.ones(len(self.x))
+        ERV_dynamics=np.zeros((np.size(self.times),np.size(self.x)),np.float32)
+        
+        
+        for ii,T in enumerate(self.T_dynamics[1:]):
+            dt=self.times[ii+1]-self.times[ii]
+            DefectsStrength=DefectsStrength*np.array(list(map(lambda T:np.exp(-dt/(self.medium.viscosity(T)/self.medium.Young_modulus)) if T>self.medium.T_annealing-200 else 1,T)))
+            ERV_dynamics[ii+1]=(np.ones(len(self.x))-DefectsStrength)*self.medium.maximum_ERV_per_square_mm*np.pi*self.r**2  
+        
+        final_ERV_array_ThroughRelaxation=(np.ones(len(self.x))-DefectsStrength)*self.medium.maximum_ERV_per_square_mm*np.pi*self.r**2
+        return final_ERV_array_ThroughRelaxation,ERV_dynamics
+
   
     def set_SNAP_parameters(self,x_ERV:np.array,ERV_0:np.array,intristic_losses,lambda_0):
         '''
@@ -185,10 +239,10 @@ class SNAP_ThermalModel():
         elif len(self.times)!=len(powers):
             print('error! Times already are set with different array size')
             return
-        self.CO2_positions=positions
-        self.CO2_powers=powers 
-        self.CO2_focused_spot_width=focused_spot_width
-        self.CO2_spot_radius=spot_radius
+        self.CO2_positions=positions # in mm
+        self.CO2_powers=powers # in W
+        self.CO2_focused_spot_width=focused_spot_width # in mm
+        self.CO2_spot_radius=spot_radius # in mm
         
         
         
@@ -196,6 +250,7 @@ class SNAP_ThermalModel():
         '''
         times in s, powers in W, wavelengths in nm, detuning in nm
         '''
+        self.recalculating_modes=True
         self.laser_pumping=True
         self.times=times 
         self.pump_powers=powers
@@ -419,18 +474,21 @@ class SNAP_ThermalModel():
         
         for ii,t in enumerate(self.times[:-1]):
             source=np.zeros(len(self.x))
+            
             if ii%100==0 and log:
                 time_tic_2=time.time()
                 time_remaining=(N_steps-ii)/100*(time_tic_2-time_tic_1)
                 print('Modeling time={:.3f} s, step {} of {}, time remaining={:.0f} min {:.1f} s'.format(t,ii,N_steps,time_remaining//60,np.mod(time_remaining,60)))
                 time_tic_1=time_tic_2
-            ERV=self.ERV_0+np.interp(self.x_ERV,self.x,self.T-self.T_bound)*self.thermal_optical_coefficient*self.r*1e6
             
-            # ERV=self.ERV_0+(self.T[ind1:ind2]-self.T_bound)*self.thermal_optical_coefficient*self.r*1e6
-            E_array,psi_distribs= self.solve_Shrodinger(ERV)
-            resonance_wavelengths,delta_v=self.get_detunings_from_energies(E_array)
-            resonances_dynamics.append(resonance_wavelengths)
             
+            if self.recalculating_modes:
+                ERV=self.ERV_0+np.interp(self.x_ERV,self.x,self.T-self.T_bound)*self.thermal_optical_coefficient*self.r*1e6
+                # ERV=self.ERV_0+(self.T[ind1:ind2]-self.T_bound)*self.thermal_optical_coefficient*self.r*1e6
+                E_array,psi_distribs= self.solve_Shrodinger(ERV)
+                resonance_wavelengths,delta_v=self.get_detunings_from_energies(E_array)
+                resonances_dynamics.append(resonance_wavelengths)
+                
             
             if self.laser_pumping:
                 if self.follow_resonance is False:
@@ -488,8 +546,7 @@ class SNAP_ThermalModel():
         self.resonances_dynamics=resonances_dynamics
         time2=time.time()
         time_elapsed=time2-time1
-        if log:
-            print('Total time of calculation is {} min {:.0f} s'.format(time_elapsed//60, np.mod(time_elapsed,60)))
+        print('Total time of calculation is {} min {:.0f} s'.format(time_elapsed//60, np.mod(time_elapsed,60)))
         return T_array,resonances_dynamics
     
     def plot_pump_dynamics(self):
@@ -640,6 +697,7 @@ class SNAP_ThermalModel():
 
     def save_model(self,f_name):
         with open(f_name,'wb') as f:
+            del(self.medium)
             pickle.dump(self,f)
             
     def load_results(self,f_name):
