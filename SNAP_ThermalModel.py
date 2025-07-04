@@ -133,8 +133,8 @@ class SNAP_ThermalModel():
         
         self.CO2_positions=None
         self.CO2_powers=None
-        self.CO2_focused_spot_width=None
-        self.CO2_spot_radius=None
+        self.CO2_laser_effective_source=None
+        self.CO2_spot_radius_z=None
         
         '''
         for ERV estimation
@@ -233,7 +233,7 @@ class SNAP_ThermalModel():
 
 
         
-    def set_external_CO2_laser_parameters(self,times,powers, positions,spot_radius,focused_spot_width):
+    def set_external_CO2_laser_parameters(self,times,powers, positions,spot_radius_y,shift_y,spot_radius_z):
         if self.times is None:
             self.times=times
         elif len(self.times)!=len(powers):
@@ -241,8 +241,9 @@ class SNAP_ThermalModel():
             return
         self.CO2_positions=positions # in mm
         self.CO2_powers=powers # in W
-        self.CO2_focused_spot_width=focused_spot_width # in mm
-        self.CO2_spot_radius=spot_radius # in mm
+        self.CO2_spot_radius_z=spot_radius_z
+        self.CO2_laser_effective_source=1/np.sqrt(2)/self.CO2_spot_radius_z*self.theta*(erf((shift_y+self.r)*np.sqrt(2)/spot_radius_y)-erf((shift_y-self.r)*np.sqrt(2)/spot_radius_y))
+        
         
         
         
@@ -526,7 +527,7 @@ class SNAP_ThermalModel():
                 source[self.taper_position_index]+=self.taper_losses*self.pump_powers[ii]*self.theta/(self.x[self.taper_position_index]-self.x[self.taper_position_index-1])
             
             if self.CO2_powers is not None:
-              source+=np.exp(-(2*(self.x-self.CO2_positions[ii])/self.CO2_focused_spot_width)**2)*self.CO2_powers[ii]*np.sqrt(2)*erf(np.sqrt(2)*self.r/self.CO2_spot_radius)/(np.pi**(3/2)*self.CO2_focused_spot_width)*np.pi*self.theta
+              source+=np.exp(-(2*(self.x-self.CO2_positions[ii])/self.CO2_spot_radius_z)**2)*self.CO2_powers[ii]*self.CO2_laser_effective_source
             
             if self.secondary_pump_powers is not None:
                 F_2=np.sqrt(4*self.secondary_pump_powers[ii]*delta_c/EPSILON_0/self.refractive_index**2/Veff)#
