@@ -6,8 +6,8 @@ Created on Tue Apr 11 16:47:39 2023
 """
 
 
-__date__='2025.07.02'
-__version__='1.3'
+__date__='2025.09.30'
+__version__='1.4'
 
 import numpy as np
 from numba import njit
@@ -31,6 +31,34 @@ pathname=os.path.dirname(__file__)
 EPSILON_0=8.85418781762039e-15 # F/mm, dielectric constant
 LIGHT_SPEED=3e11 #mm/s, speed of light
 SIGMA=0.92*5.6e-8*1e-6 #W/mm**2/K**4 Stephan-Boltzman constant
+LASER_INITIAL_SPOT_RADIUS=3.5/2
+
+
+def CO2_laser_spot_after_propogating(distance_propagated):
+    '''
+    distance_propagated - between the laser output and the plane under test
+    '''
+    z_R=np.pi*LASER_INITIAL_SPOT_RADIUS**2/10.6e-3  # axis that is not focused 
+    laser_spot_radius=LASER_INITIAL_SPOT_RADIUS*np.sqrt(1+(distance_propagated/z_R)**2)
+    return laser_spot_radius,z_R
+
+def CO2_laser_spot_after_cylindrical_lens(distance_propagated,defocusing_shift=0,lens_focus=22):
+    '''
+    
+    calculating parameteters after focusing with cylindrical lense, "distance_propagated" apart of laser output
+    
+    distance_propagated - between the laser output and the cylindrical lens
+    
+    defocusing_shift is the distance between the foucs and the plane under test
+    '''
+    
+    z_R_y=np.pi*LASER_INITIAL_SPOT_RADIUS**2/10.6e-3
+    laser_spot_radius_y=LASER_INITIAL_SPOT_RADIUS*np.sqrt(1+(distance_propagated/z_R_y)**2)
+    alpha=lens_focus/np.sqrt((distance_propagated-lens_focus)**2+z_R_y**2)
+    z_R_z=alpha**2*z_R_y
+    laser_spot_radius_z=alpha*LASER_INITIAL_SPOT_RADIUS # mm, radius of the waist at the focus
+    laser_spot_radius_z=laser_spot_radius_z*np.sqrt(1+(defocusing_shift/z_R_z)**2)
+    return laser_spot_radius_y,laser_spot_radius_z,z_R_y,z_R_z
 
 
 
@@ -101,6 +129,7 @@ class SNAP_ThermalModel():
         
         temp=importlib.util.spec_from_file_location("medium_name",pathname+"\\media_params\\"+medium_name+'.py')
         self.medium = importlib.util.module_from_spec(temp)
+        self.medium_name=medium_name
         temp.loader.exec_module(self.medium)
         
         
@@ -234,6 +263,9 @@ class SNAP_ThermalModel():
 
         
     def set_external_CO2_laser_parameters(self,times,powers, positions,spot_radius_y,shift_y,spot_radius_z):
+        '''
+        shift_y - shift perpeniducal cylinder
+        '''
         if self.times is None:
             self.times=times
         elif len(self.times)!=len(powers):
@@ -697,9 +729,11 @@ class SNAP_ThermalModel():
         plt.ylabel('Temperature, C')
 
     def save_model(self,f_name):
+        temp=self.medium
         with open(f_name,'wb') as f:
-            del(self.medium)
+            self.medium=None
             pickle.dump(self,f)
+            self.medium=temp
             
     def load_results(self,f_name):
         with open(f_name,'rb') as f:
