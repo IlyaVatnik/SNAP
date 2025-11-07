@@ -188,6 +188,8 @@ class SNAP_ThermalModel():
     # @njit(parallel=True)
     def estimate_ERV_through_relaxation(self):
         '''
+        estimating ERV appearing during the whole process of heating
+       
         Fast and correct vectorized version for estimating ERV.
         '''
         DefectsStrength = np.ones(len(self.x), dtype=np.float32)
@@ -213,24 +215,7 @@ class SNAP_ThermalModel():
         
         final_ERV = (1.0 - DefectsStrength) * self.medium.maximum_ERV_per_square_mm * np.pi * self.r**2
         return final_ERV, ERV_dynamics
-  
-    def estimate_ERV_through_relaxation_old(self):
-        '''
-        estimating ERV appearing during the whole process of heating
-        '''
-        
 
-        DefectsStrength=np.ones(len(self.x))
-        ERV_dynamics=np.zeros((np.size(self.times),np.size(self.x)),np.float32)
-        
-        
-        for ii,T in enumerate(self.T_dynamics[1:]):
-            dt=self.times[ii+1]-self.times[ii]
-            DefectsStrength=DefectsStrength*np.array(list(map(lambda T:np.exp(-dt/(self.medium.viscosity(T)/self.medium.Young_modulus)) if T>self.medium.T_annealing-200 else 1,T)))
-            ERV_dynamics[ii+1]=(np.ones(len(self.x))-DefectsStrength)*self.medium.maximum_ERV_per_square_mm*np.pi*self.r**2  
-        
-        final_ERV_array_ThroughRelaxation=(np.ones(len(self.x))-DefectsStrength)*self.medium.maximum_ERV_per_square_mm*np.pi*self.r**2
-        return final_ERV_array_ThroughRelaxation,ERV_dynamics
 
   
     def set_SNAP_parameters(self,x_ERV:np.array,ERV_0:np.array,intristic_losses,lambda_0):
@@ -378,79 +363,6 @@ class SNAP_ThermalModel():
         return Temps_previous
      
 
-            
-
-    def solve_temper_model_with_source_old(self,dt:float,t_max:float,T:np.array,source:np.array):
-
-        '''
-        made by Arkady
-        refactored by Ilya
-        '''
-        # dt=t_max/N_t
-        t=0
-        N_x=self.N_x
-        #aj*U_n+1,j+1 +bj*U_n+1,j +cj*U_n+1,j-1=ksi_n - схема кранка-николcон
-        """
-        a=(-1*Beta*dt)/(2*dx*dx)
-        c=a
-        b=1+dt*Beta/(dx*dx)"""
-        Temps_previous=T # массив температур
-        Temps_next = np.empty_like(T) #                               Temps_next=np.zeros(len(T),np.float32)
-        
- 
-        #     heat capacity -120 +4.56*Temp-(7.38*1e-3)*np.power(Temp,2)+(6.59*1e-6)*np.power(Temp,3)-(3.05*1e-9)*np.power(Temp,4)+(5.72*1e-13)*np.power(Temp,5)
-        
-        alpha=np.zeros((N_x-1),np.float32)
-        betta=np.zeros((N_x-1),np.float32)
-        
-        #пользуемся гран условиями 
-        #b0X0+c0X1=d0
-        b0=1
-        c0=0
-        d0=self.T_bound
-        alpha[0]=-1*c0/b0
-        betta[0]=d0/b0
-        n=1
-
-        h_a=np.diff(self.x[1:])
-        h_b=np.diff(self.x[:-1])
-        
-        a=(-1*self.beta*dt)/(2*h_a*h_a)
-        c=(-1*self.beta*dt)/(2*h_a*h_b)
-        b=1+0.5*dt*self.beta*(h_a+h_b)/(h_a*h_a*h_b)
-        
-        bm=1
-        am=0
-        dm=self.T_bound
-        
-        while t<t_max: #идем по времени
-            t+=dt
-            KSI_n_j=(1-0.5*self.beta*dt*(h_a+h_b)/(h_a*h_a*h_b))*Temps_previous[1:-1] +(self.beta*dt/(2*h_a*h_a))*Temps_previous[2:] +(self.beta*dt/(2*h_a*h_b))*Temps_previous[:-2] + dt*source[1:-1] \
-                        -dt*(self.delta*(Temps_previous[1:-1]+273)**4-self.delta*(self.T_bound+273)**4)
-            
-            if self.active_cooling:
-                KSI_n_j-=dt*self.gamma_array[1:-1]*(Temps_previous[1:-1]-self.T_bound )
-            else:
-                KSI_n_j-=dt*self.gamma*(Temps_previous[1:-1]-self.T_bound )
-        
-                   
-            for j in range(0,N_x-2):
-                alpha[j+1]= -a[j]/(b[j]+c[j]*alpha[j])
-                betta[j+1]=(KSI_n_j[j]-c[j]*betta[j] )/(b[j]+c[j]*alpha[j])
-            
-            # теперь у нас есть массив альф и бетт, у нас есть рекуентной соотношение на наши тепемпературы
-            
-            U1=(dm-am*betta[N_x-2])/(alpha[N_x-2]*am+bm)
-            Temps_next[N_x-1]=U1
-            
-            for j in range(2,N_x+1): #сейчас записываем температуры справа налево
-                Temps_next[N_x-j]=alpha[N_x-j]*Temps_next[N_x-j+1]+betta[N_x-j]
-            Temps_previous=Temps_next
-            # 
-            
-            
-        # print(times1,times2)
-        return Temps_next
  
     
     def solve_Shrodinger(self,ERV,Tmtx=None):
@@ -582,28 +494,7 @@ class SNAP_ThermalModel():
         print('Total time of calculation is {} min {:.0f} s'.format(time_elapsed//60, np.mod(time_elapsed,60)))
         return T_array,resonances_dynamics
     
-    def plot_pump_dynamics(self):
-        plt.figure()
-        plt.plot(self.times,self.pump_wavelengths)
-        plt.xlabel('Time, s')
-        plt.ylabel('Wavelength, nm')
-        plt.twinx(plt.gca())
-        plt.plot(self.times,self.pump_powers,color='red')
-        plt.ylabel('Power, W')
-        plt.tight_layout()
-        
-    
-    def plot_modes_distribs(self):
-        _,psi_distribs=self.solve_Shrodinger(self.ERV_0)
-        plt.figure()
-        plt.plot(self.x_ERV, self.ERV_0,color='black')
-        plt.xlabel('Position, mm')
-        plt.ylabel('ERV, nm')
-        plt.twinx(plt.gca())
-        # plt.plot(x_ERV,psi_distribs[5]**2)
-        for psi in psi_distribs:
-            plt.plot(self.x_ERV,abs(psi)**2)
-        plt.ylabel('Intensity')
+  
         
         
     def get_ERV_at_T(self,T=0, mode_resolution_x=None):
@@ -658,6 +549,28 @@ class SNAP_ThermalModel():
       
         return a_2
         
+    def plot_pump_dynamics(self):
+        plt.figure()
+        plt.plot(self.times,self.pump_wavelengths)
+        plt.xlabel('Time, s')
+        plt.ylabel('Wavelength, nm')
+        plt.twinx(plt.gca())
+        plt.plot(self.times,self.pump_powers,color='red')
+        plt.ylabel('Power, W')
+        plt.tight_layout()
+        
+    
+    def plot_modes_distribs(self):
+        _,psi_distribs=self.solve_Shrodinger(self.ERV_0)
+        plt.figure()
+        plt.plot(self.x_ERV, self.ERV_0,color='black')
+        plt.xlabel('Position, mm')
+        plt.ylabel('ERV, nm')
+        plt.twinx(plt.gca())
+        # plt.plot(x_ERV,psi_distribs[5]**2)
+        for psi in psi_distribs:
+            plt.plot(self.x_ERV,abs(psi)**2)
+        plt.ylabel('Intensity')
     
     def plot_modes_dynamics(self,xaxis='waves',step=20,modes_to_plot=None):
         import matplotlib.cm as cm

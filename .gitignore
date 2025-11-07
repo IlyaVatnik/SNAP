@@ -9,3 +9,6 @@
 *.pkl
 2.Result
 *.pkl
+*.model
+*.png
+*.pkl

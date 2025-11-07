@@ -8,5 +8,5 @@ thermal_conductivity=32*1e-3 # W/mm/K
 
 heat_exchange=10*1e-6 #W/mm**2/K
         # thermal_expansion_coefficient=0.0107*r*1e3 #nm/K for effective radius variation
-
-
+refractive_index=1.5
+thermal_optical_coefficient=10*1e-6 #1/K for effective radius variation

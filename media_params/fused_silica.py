@@ -27,6 +27,9 @@ maximum_ERV_per_square_mm=18/3.1415/(0.0625)**2 # maximum varation 18 nm obtaine
 R=8.31 #J/mol/K
 
 def viscosity_v1(T):
+    '''
+    T in C
+    '''
     return np.exp(Q_H/R*(1/(T+273)-1/(T_annealing+273)))*t_relaxation_at_annealing_temperature*Young_modulus
 
 
