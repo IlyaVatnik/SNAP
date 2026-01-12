@@ -9,8 +9,8 @@ After papers
 1. Sumetsky, M. Theory of SNAP devices: basic equations and comparison with the experiment. Opt. Express 20, 22537 (2012).
 2. Vitullo, D. L. P., Zaki, S., Jones, D. E., Sumetsky, M. & Brodsky, M. Coupling between waveguides and microresonators: the local approach. Opt. Express 28, 25908 (2020).
 '''
-__version__='2.3'
-__date__='2023.03.16'
+__version__='2.4'
+__date__='2026.01.12'
 
 import numpy as np
 import bottleneck as bn
@@ -53,11 +53,14 @@ class SNAP():
             self.x=x  # mkm
             self.N=len(x)
             self.U=-2*self.k0**2*self.ERV*(1e-3)/self.R_0/self.refractive_index
+            self.dx=x[1]-x[0]
+            self.Tmtx=-1/self.dx**2*sparse.diags([-2*np.ones(self.N),np.ones(self.N)[1:],np.ones(self.N)[1:]],[0,-1,1]).toarray()
         else:
             self.ERV=None # nm
             self.x=None # mkm
             self.N=None
             self.U=None
+            
 
         
         self.transmission=None
@@ -160,14 +163,22 @@ class SNAP():
         
         
     def solve_Shrodinger(self):
-        dx=self.x[1]-self.x[0]
-        Tmtx=-1/dx**2*sparse.diags([-2*np.ones(self.N),np.ones(self.N)[1:],np.ones(self.N)[1:]],[0,-1,1]).toarray()
+                
         Vmtx=np.diag(self.U)
-        Hmtx=Tmtx+Vmtx
+        Hmtx=self.Tmtx+Vmtx
+        
         (eigvals,eigvecs)=la.eigh(Hmtx,check_finite=False)
-        sorted_indexes=np.argsort(np.real(eigvals))
-        eigvals,eigvecs=[eigvals[sorted_indexes],eigvecs.T[sorted_indexes]]
-        eigvecs=eigvecs/np.sqrt(dx)  # to get normalization for integral (psi**2 dx) =1
+        
+        eigvecs=eigvecs.T
+        
+        indexes=np.where(eigvals<0)
+        eigvals,eigvecs=eigvals[indexes],eigvecs[indexes]
+        
+        eigvecs=(eigvecs.T/(np.max(np.abs(eigvecs),axis=1))).T
+                
+        # sorted_indexes=np.argsort(np.real(eigvals))
+        # eigvals,eigvecs=[eigvals[sorted_indexes],eigvecs.T[sorted_indexes]]
+        eigvecs=eigvecs/np.sqrt(self.dx)  # to get normalization for integral (psi**2 dx) =1
         return eigvals,eigvecs
 
     def get_delay(self,z1,z2,wavelength):
@@ -208,7 +219,7 @@ class SNAP():
     
     def GreenFunctionXX(self,eigvals,eigvecs,wavelength):
         E=-2*self.k0**2*(wavelength-self.lambda_0)/self.lambda_0
-        return bn.nansum(eigvecs**2/(E-eigvals+1j*self.res_width_norm),1) 
+        return bn.nansum(eigvecs.T**2/(E-eigvals+1j*self.res_width_norm),1) 
     
 
     
@@ -420,15 +431,15 @@ def load_model(file_name):
 if __name__=='__main__':
 
     
-    N=800
+    N=1600
     lambda_0=1552.21
-    wave_min,wave_max,res=1552.24,1552.25, 1e-4
+    wave_min,wave_max,res=lambda_0-0.1,lambda_0+0.5, 1e-4
     
-    x=np.linspace(-10000,10000,N)
+    x=np.linspace(-4000,4000,N)
     lambda_array=np.arange(wave_min,wave_max,res)
     
-    A=4
-    sigma=50
+    A=10
+    sigma=15
     p=1.1406
     def ERV(x):
         # if abs(x)<=200:
@@ -440,7 +451,7 @@ if __name__=='__main__':
     ERV=np.array(list(map(ERV,x)))
     
     SNAP=SNAP(x,ERV,lambda_array,lambda_0=lambda_0,res_width=1e-4,R_0=62.5)
-    SNAP.set_taper_params(absS=np.sqrt(0.8),phaseS=0.0,ReD=0.00,ImD_exc=2e-3,Csquared=0.001)
+    SNAP.set_taper_params(absS=np.sqrt(0.8),phaseS=0.0,ReD=0.00,ImD_exc=0e-3,Csquared=0.00001)
     fig=SNAP.plot_spectrogram(plot_ERV=True,scale='log')
     # plt.xlim((-150,150))
     # SNAP.plot_ERV()

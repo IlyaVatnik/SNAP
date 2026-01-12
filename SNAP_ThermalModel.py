@@ -6,8 +6,8 @@ Created on Tue Apr 11 16:47:39 2023
 """
 
 
-__date__='2025.09.30'
-__version__='1.4'
+__date__='2025.11.07'
+__version__='1.5'
 
 import numpy as np
 from numba import njit
@@ -259,7 +259,7 @@ class SNAP_ThermalModel():
         self.CO2_positions=positions # in mm
         self.CO2_powers=powers # in W
         self.CO2_spot_radius_z=spot_radius_z
-        self.CO2_laser_effective_source=1/np.sqrt(2)/self.CO2_spot_radius_z*self.theta*(erf((shift_y+self.r)*np.sqrt(2)/spot_radius_y)-erf((shift_y-self.r)*np.sqrt(2)/spot_radius_y))
+        self.CO2_laser_effective_source=self.theta/np.sqrt(2*np.pi)/self.CO2_spot_radius_z*(erf((shift_y+self.r)*np.sqrt(2)/spot_radius_y)-erf((shift_y-self.r)*np.sqrt(2)/spot_radius_y))
         
         
         

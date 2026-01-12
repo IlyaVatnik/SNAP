@@ -8,9 +8,9 @@ import os
 L=300 ## mm
 
 r_out=2
-r_in=0.4
+r_in=0.0
 
-pump_in_percents=60
+pump_in_percents=60*0.5
 
 distance_propagated=500
 shift_y=0

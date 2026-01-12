@@ -24,6 +24,7 @@ import matplotlib.transforms as mtransforms
 import json
 import os
 
+
 L=200
 
 
@@ -56,7 +57,7 @@ laser_spot_radius,z_R=SNAP_ThermalModel.CO2_laser_spot_after_propogating(distanc
 for pump_in_percents in [1,5,3,6,12,15]:
 
     
-    Power=36*0.91*pump_in_percents*0.01
+    Power=35*pump_in_percents*0.01
     times=np.arange(0,t_max,t_step)
     powers=Power*np.ones(len(times))
     positions=np.ones(len(times))*x_beam_0
@@ -77,7 +78,6 @@ def read_file(name):
     f.close()
     X=[P,T]
     return X
-
 
 
 X=read_file('Experiment.txt')
