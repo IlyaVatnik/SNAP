@@ -355,8 +355,8 @@ class SNAP():
             Update second axis according with first axis.
             """
             y1, y2 = ax_Wavelengths.get_ylim()
-            nY1=(y1-self.lambda_0)/wave_max*self.R_0*1e3
-            nY2=(y2-self.lambda_0)/wave_max*self.R_0*1e3
+            nY1=(y1-self.lambda_0)/wave_max*self.R_0*self.refractive_index*1e3
+            nY2=(y2-self.lambda_0)/wave_max*self.R_0*self.refractive_index*1e3
             ax_Radius.set_ylim(nY1, nY2)
             
         def _forward(x):
@@ -433,24 +433,28 @@ if __name__=='__main__':
     
     N=1600
     lambda_0=1552.21
-    wave_min,wave_max,res=lambda_0-0.1,lambda_0+0.5, 1e-4
+    R_0=62.5
     
-    x=np.linspace(-4000,4000,N)
-    lambda_array=np.arange(wave_min,wave_max,res)
-    
-    A=10
-    sigma=15
+    A=20
+    sigma=150
     p=1.1406
     def ERV(x):
         # if abs(x)<=200:
 #            return (x)**2
-        return A*np.exp(-(x**2/2/sigma**2)**p)-0.5*A*np.exp(-(x**2/2/(sigma*1.2)**2)**p)
+        return A*np.exp(-(x**2/2/sigma**2)**p)
         # else:
             # return 0
 #            return ERV(5)-1/2*(x)**2
+    
+    
+    wave_min,wave_max,res=lambda_0-0.01,lambda_0*(1+A*1e-3/R_0*1.2), 1e-4
+    
+    x=np.linspace(-1000,1000,N)
+    lambda_array=np.arange(wave_min,wave_max,res)
+    
     ERV=np.array(list(map(ERV,x)))
     
-    SNAP=SNAP(x,ERV,lambda_array,lambda_0=lambda_0,res_width=1e-4,R_0=62.5)
+    SNAP=SNAP(x,ERV,lambda_array,lambda_0=lambda_0,res_width=1e-4,R_0=R_0)
     SNAP.set_taper_params(absS=np.sqrt(0.8),phaseS=0.0,ReD=0.00,ImD_exc=0e-3,Csquared=0.00001)
     fig=SNAP.plot_spectrogram(plot_ERV=True,scale='log')
     # plt.xlim((-150,150))
