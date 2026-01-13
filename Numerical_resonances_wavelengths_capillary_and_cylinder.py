@@ -266,35 +266,24 @@ def SellmeierCoefficientsCalculating(material, T):
     else:
         pass
     return sellmeier_coeffs
-#%%
-# R1 = 0
-# R2 = 65
-# n1 = 1
-# n2 = 1.444
-# n3 = 1
-# m = 355
-# p = 1
 
-# polarization = 'TM'
-
-# res, k_0 = resonance_capillary(R1, R2, n1, n2, n3, m, p, pol = polarization, dispersion = False, plot_eigen_eq=True)
-
-# res_water, k_0_water = resonance_capillary(R1, R2, n1+0.318, n2, n3, m, p, pol = polarization, dispersion = True)
-# res, k_0 = resonance_cylinder(R2, n2, n3, m, p, pol = 'TE', dispersion = True)
-
-# def FSR()
-# print(res*1e3)
-# print((res_water - res)*1e3)
-# print(k_0)
-
-
-#     #%%
-# import pickle
-# with open(r"F:\капилляры\Численные задачи\R=110 mkm single spectrum.pkl", 'rb') as f:
-#     data = pickle.load(f)
+if __name__ == "__main__":
+    R1 = 40
+    R2 = 65
+    n1 = 1
+    n2 = 1.444
+    n3 = 1
+    m = 355
+    p = 1
+    polarization = 'TM'
     
+    res, k_0 = resonance_capillary(R1, R2, n1, n2, n3, m, p, pol = polarization, dispersion = False, plot_eigen_eq=True)
     
-# plt.figure()
-# plt.plot(data.T[0], data.T[1])
-# # plt.axvline()
+    res_water, k_0_water = resonance_capillary(R1, R2, n1+0.318, n2, n3, m, p, pol = polarization, dispersion = True)
+    
+    res_cyl, k_0_cyl = resonance_cylinder(R2, n2, n3, m, p, pol = 'TE', dispersion = True)
+    
+    print(f'Resonance wavelength and wavenumber of the empty capillary are {res} mkm, {k_0} 1/mkm')
+    print(f'Resonance wavelength and wavenumber of the water-filled capillary are {res_water} mkm, {k_0_water} 1/mkm')
+    print(f'Resonance wavelength and wavenumber of the cylinder are {res_cyl} mkm, {k_0_cyl} 1/mkm')
 

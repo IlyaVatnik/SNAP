@@ -86,34 +86,26 @@ def E_capillary(R1, R2, n1, n2, n3, k_0, m, p, r):
 
 
 
-#%%
+if __name__ == "__main__":
 
-# R1 = 11
-# R2 = 65
-# n1 = 1
-# n2 = 1.444
-# n3 = 1
-# m = 355 #117#122#128#               #135#362#590
-# p = 25
-
-# wl, k_0 = resonance_capillary(R1, R2, n1, n2, n3, m, p, pol = 'TE')
-# Rarray = np.arange(R1-10, R2+10, 1e-3)
-# I = np.abs(E_capillary(R1, R2, n1, n2, n3, k_0, m, p, Rarray)**2)
-# # I2 = np.abs(E_WGM_resonator(R1, R2, n1_water, n2, n3, m2, p2, Rarray)**2)
-
-
-
-
-
-
-
-# plt.rc('font', size = 20)
-# # plt.plot(Rarray, I/np.sum(I), label = f'Microtube, n1 = {n1}, n2 = {n2}, n3 = {n3}, m = {m}, p = {p}')
-# plt.plot(Rarray, I/np.sum(I), label = f'Microtube p = {p}')
-# # plt.plot(Rarray, I2/np.sum(I2), label = f'Microtube, n1 = {n1}, n2 = {n2}, n3 = {n3}, m = {m2}, p = {p2}')
-# plt.axvline(R1, c = 'r', linestyle = ':')
-# plt.axvline(R2, c = 'r', linestyle = ':')
-# plt.xlabel('Radius, mkm')
-# plt.ylabel('Normalized intensity, arb.un')
-# # plt.axvline(R2 - 3*2*np.pi*R2*n2/m*p, c = 'purple', linestyle = ':') # В случае толстого капилляра программа сшивает решения для цилиндра и капилляра в этой точке
-# plt.legend()
+    R1 = 55
+    R2 = 65
+    n1 = 1
+    n2 = 1.444
+    n3 = 1
+    m = 355 #117#122#128#               #135#362#590
+    p = 3
+    
+    wl, k_0 = resonance_capillary(R1, R2, n1, n2, n3, m, p, pol = 'TE')
+    Rarray = np.arange(R1-10, R2+10, 1e-3)
+    I = np.abs(E_capillary(R1, R2, n1, n2, n3, k_0, m, p, Rarray)**2)
+    
+    
+    plt.figure()
+    plt.rc('font', size = 20)
+    plt.plot(Rarray, I/np.sum(I), label = f'Microtube p = {p}')
+    plt.axvline(R1, c = 'r', linestyle = ':')
+    plt.axvline(R2, c = 'r', linestyle = ':')
+    plt.xlabel('Radius, mkm')
+    plt.ylabel('Normalized intensity, arb.un')
+    plt.legend()
