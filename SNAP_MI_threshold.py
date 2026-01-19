@@ -5,8 +5,8 @@ Created on Tue Jun 17 12:31:27 2025
 @author: Илья
 """
 
-__date__='2025.06.19'
-__version__='1.3'
+__date__='2026.01.18'
+__version__='1.4'
 
 # -*- coding: utf-8 -*-
 import numpy as np
@@ -26,7 +26,7 @@ from contextlib import contextmanager
 def suppress_warnings():
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=RuntimeWarning)
-        warnings.simplefilter("ignore", category=np.ComplexWarning)
+        warnings.simplefilter("ignore", category=np.exceptions.ComplexWarning)
         yield
         
 c = 299792458 * 1e6
@@ -338,6 +338,7 @@ class SNAP_nonlinear_system:
                                        self.n[0]**2 * self.V_eff_q0 / self.g0 * 2)
         
         print(f"P_threshold_nonlinear_effect = {P_threshold_nonlinear_effect} W")
+        return P_threshold_nonlinear_effect
 
         
       
@@ -348,7 +349,7 @@ class SNAP_nonlinear_system:
         Calculate minimum positive threshold power for modulation instability
         '''
  
-        self.calculate_pump_mode_params()
+        P_threshold_nonlinear_effect=self.calculate_pump_mode_params()
         # Coupling function
         coupling_function = (np.exp(-((self.z - self.Z_taper) / self.CouplingWidth)**2 / 2) / 
               np.sqrt(2 * np.pi) / self.CouplingWidth)
@@ -446,10 +447,10 @@ class SNAP_nonlinear_system:
         if positive_P_th.size > 0:
             min_P_th = np.min(positive_P_th)
             print(f"P_threshold_MI = {min_P_th} W")
-            return min_P_th
+            return min_P_th,P_threshold_nonlinear_effect
         else:
             print("No positive thresholds found")
-            return None
+            return None,P_threshold_nonlinear_effect
 
 if __name__ == "__main__":
     
@@ -476,7 +477,7 @@ if __name__ == "__main__":
     # 'delta_c': 2e6, # taper coupling, s^-1
     'Gamma': 4e6, # internal losses of the resonator, s^-1
     'Z_taper': 0, #   Taper position along z in microns
-    'q0': 0, # Pump axial mode number (counting from 0)
+    'q0': 100, # Pump axial mode number (counting from 0)
     'mu_max': 3, # maximum detuning that is taken into account
     'P_max': 1, # Desired power threshold
     'm_val': 354, # azimuthal number

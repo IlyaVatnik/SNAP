@@ -431,19 +431,19 @@ def load_model(file_name):
 if __name__=='__main__':
 
     
-    N=1600
+    N=600
     lambda_0=1552.21
-    R_0=62.5
+    R_0=100
     
-    A=20
-    sigma=150
-    p=1.1406
+    A=10 ## maximum cariation in nm!!
+    sigma=160
+    p=1
     def ERV(x):
-        # if abs(x)<=200:
-#            return (x)**2
-        return A*np.exp(-(x**2/2/sigma**2)**p)
-        # else:
-            # return 0
+        if abs(x)<=sigma:
+           return A*(1-(x/sigma)**2)
+        # return A*np.exp(-(x**2/2/sigma**2)**p)
+        else:
+           return 0
 #            return ERV(5)-1/2*(x)**2
     
     
