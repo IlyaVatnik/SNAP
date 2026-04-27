@@ -2,7 +2,8 @@
 """
 Created on Tue Jun 17 12:31:27 2025
 
-@author: Илья
+@author: Алена, 
+правки - Илья
 """
 
 __date__='2026.01.18'
@@ -26,7 +27,10 @@ from contextlib import contextmanager
 def suppress_warnings():
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", category=RuntimeWarning)
-        warnings.simplefilter("ignore", category=np.exceptions.ComplexWarning)
+        try:
+            warnings.simplefilter("ignore", category=np.exceptions.ComplexWarning)
+        except AttributeError:
+            warnings.simplefilter("ignore", category=np.ComplexWarning)
         yield
         
 c = 299792458 * 1e6
@@ -50,13 +54,15 @@ class SNAP_nonlinear_system:
             CouplingWidth (float): half-width of the taper in the constriction (half-width of the Gaussian function)
        
             Z_taper (float): Taper position along z in microns
-            q0 (int): Pump axial mode number (counting from 0)
+            q0 (int): Pump axial mode number (counting from 0), нумерация мод по увеличению длины волны, т.е. мода 0 -  с наименьшей длиной волны! 
             
             P_in (float): Desired power threshold
             m_val (int): 
             CouplingWidth (float): 
             z_dr (array): Original z-points for dr
-            dr (array): Radius variation values at z_dr points
+            dr (array): Radius variation values at z_dr points, if ERV is needed - multiply by refractive index!
+            
+            z_dr will be than interpolated on dim_space point grid
         """
         # Extract parameters
         try:
@@ -125,6 +131,7 @@ class SNAP_nonlinear_system:
         ResonantL = c / self.omega * 2 * np.pi
         self.n = self.n_lambda(ResonantL)
         self.beta = self.omega * self.n / c
+        self.lambda_0=2*np.pi/self.beta
         self.coef_disp_mat = (1 + self.dn_omega(self.omega) * self.omega / self.n)
         
         self.I_vec = quad(self.Airy2(1), 0, self.RadiusFiber)[0] * 2 * np.pi / self.NormAiry(1)**2
@@ -179,18 +186,31 @@ class SNAP_nonlinear_system:
             # omega_spectrum_az[i, :len(part_omega_spectrum)] = new_spectrum
             Function_spectrum= np.transpose(np.transpose(Function_spectrum)[index_2])
             Function_spectrum= np.transpose(np.transpose(Function_spectrum)[index_2])
-            self.omega_spectrum, self.mode_distribs = omega_spectrum_all,Function_spectrum
+            self.omega_spectrum, self.mode_distribs = omega_spectrum_all,Function_spectrum/np.max(abs(Function_spectrum),axis=0)
+            
             print('Amount of axial modes is {}'.format(len(self.omega_spectrum)))
 
             return omega_spectrum_all, omega_spectrum_az, Function_spectrum #  Function_spectrum - распределение амплитуд мод . номер столбца - номер аксиальной моды
     # omega_spectrum_az массив частот аксиальных мод, для каждой азимутальной
 
-
-    # def calculate_FSR_and_D(self):
-    #     fsr = -(self.omega_spectrum[ :- 1] - self.omega_spectrum[1:]) / 2
+    def get_FSR(self):
+        diff=np.diff(self.omega_spectrum)
+        return diff
         
-    #     D_in = (self.omega_spectrum - self.omega_spectrum[num] - 
-    #             fsr * (range_mode - range_mode[num])) * 2 * np.pi * 1e12
+        
+    def get_Dint(self,pump_mode, number_of_modes=None):
+        '''
+        return Dint in GHz
+        '''
+        if number_of_modes==None:
+            number_of_modes=len(self.omega_spectrum)
+        diff=np.diff(self.omega_spectrum)
+        FSR=(diff[pump_mode]+diff[pump_mode-1])/2
+        linspace=np.arange(0,number_of_modes)-pump_mode
+        mu_by_FSR=(linspace)*(np.ones(np.shape(self.omega_spectrum)).T*FSR).T
+        Dint=self.omega_spectrum-mu_by_FSR-self.omega_spectrum[pump_mode]
+        return Dint
+    
         
     def Azimuthal_Material_and_geom_DispersionApproximation(self, m, p, P):
         t = [-2.33810741, -4.08794944, -5.52055983, -6.78670809, -7.94413359,
@@ -300,8 +320,8 @@ class SNAP_nonlinear_system:
     def calculate_pump_mode_params(self):
         # Calculate integrals
           
-        pump_mode_distrib = self.mode_distribs[:,self.q0]
-        self.pump_mode_distrib = pump_mode_distrib/np.max(abs(pump_mode_distrib))
+        self.pump_mode_distrib = self.mode_distribs[:,self.q0]
+        # self.pump_mode_distrib = pump_mode_distrib/np.max(abs(pump_mode_distrib))
         
         # Calculate effective length and volume
         self.L_eff_q0 = (np.abs( self.pump_mode_distrib[0])**2 / 2 + 
@@ -316,6 +336,7 @@ class SNAP_nonlinear_system:
         if self.C2==None:
             self.C2 = self.delta_c *  self.L_eff_q0 / np.sum( self.pump_mode_distrib**2 * f) / self.SpaceStep
             self.ImD = (self.delta_0+self.delta_c-self.Gamma)  *self.L_eff_q0 / np.sum( self.pump_mode_distrib**2 * f) / self.SpaceStep   # 1. A. Y. Kolesnikova and I. D. Vatnik, "Theory of nonlinear whispering-gallery-mode dynamics in surface nanoscale axial photonics microresonators," Phys. Rev. A 108, 033506 (2023).
+            
         elif self.delta_0==None:
             self.delta_0=(self.ImD-self.C2) / (self.L_eff_q0 / np.sum( self.pump_mode_distrib**2 * f) / self.SpaceStep)+self.Gamma
             self.delta_c=self.C2 / (self.L_eff_q0 / np.sum( self.pump_mode_distrib**2 * f) / self.SpaceStep)
@@ -380,9 +401,9 @@ class SNAP_nonlinear_system:
                     q_minus = self.q0 - mu
                     
                     Z1 = self.mode_distribs[:, q_plus]
-                    Z1 = Z1 / np.max(np.abs(Z1))
+                    # Z1 = Z1 / np.max(np.abs(Z1))  # моды уже нормированы на единицу
                     Z2 = self.mode_distribs[:,q_minus]
-                    Z2 = Z2 / np.max(np.abs(Z2))
+                    # Z2 = Z2 / np.max(np.abs(Z2))
                     
                     # Calculate effective lengths
                     L_eff_q_plus = (Z1[0]**2 / 2 + 
@@ -454,8 +475,8 @@ class SNAP_nonlinear_system:
 
 if __name__ == "__main__":
     
-    h_width=5000 #mkm
-    MaxRadVar=0.02 # mkm
+    h_width=3000 #mkm
+    MaxRadVar=0.01 # mkm
     z_dr=np.linspace(-h_width*0.7, h_width*0.7,num=1000)
     dr=np.zeros(len(z_dr))
     dr[np.abs(z_dr) <= h_width/2] = MaxRadVar
@@ -473,8 +494,8 @@ if __name__ == "__main__":
     
     
     params = {
-    # 'delta_0': 4e6, #total losses s^-1
-    # 'delta_c': 2e6, # taper coupling, s^-1
+    'delta_0': 7e6, #total losses s^-1
+    'delta_c': 7e6, # taper coupling, s^-1
     'Gamma': 4e6, # internal losses of the resonator, s^-1
     'Z_taper': 0, #   Taper position along z in microns
     'q0': 100, # Pump axial mode number (counting from 0)
@@ -485,8 +506,8 @@ if __name__ == "__main__":
     'RadiusFiber':62.5, # Fiber radius 
     'z_dr': z_dr,  # grid for ERV in mkm. Note that internal interpolation will be applied!
     'dr': dr  ,         # ERV,
-    'C2':33887358691.86023,
-    'ImD':33887358691.86023
+    # 'C2':33887358691.86023,
+    # 'ImD':33887358691.86023
     }
     
     # Создание и запуск системы

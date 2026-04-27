@@ -277,13 +277,15 @@ if __name__ == "__main__":
     p = 1
     polarization = 'TM'
     
-    res, k_0 = resonance_capillary(R1, R2, n1, n2, n3, m, p, pol = polarization, dispersion = False, plot_eigen_eq=True)
+    # res, k_0 = resonance_capillary(R1, R2, n1, n2, n3, m, p, pol = polarization, dispersion = True, plot_eigen_eq=False)
+    # res_water, k_0_water = resonance_capillary(R1, R2, n1+0.318, n2, n3, m, p, pol = polarization, dispersion = True)
+    # res_cyl, k_0_cyl = resonance_cylinder(R2, n2, n3, m, p, polarization, dispersion = True)
     
-    res_water, k_0_water = resonance_capillary(R1, R2, n1+0.318, n2, n3, m, p, pol = polarization, dispersion = True)
-    
-    res_cyl, k_0_cyl = resonance_cylinder(R2, n2, n3, m, p, pol = 'TE', dispersion = True)
-    
-    print(f'Resonance wavelength and wavenumber of the empty capillary are {res} mkm, {k_0} 1/mkm')
-    print(f'Resonance wavelength and wavenumber of the water-filled capillary are {res_water} mkm, {k_0_water} 1/mkm')
-    print(f'Resonance wavelength and wavenumber of the cylinder are {res_cyl} mkm, {k_0_cyl} 1/mkm')
+    # print(f'Resonance wavelength and wavenumber of the empty capillary are {res} mkm, {k_0} 1/mkm')
+    # print(f'Resonance wavelength and wavenumber of the water-filled capillary are {res_water} mkm, {k_0_water} 1/mkm')
+    # print(f'Resonance wavelength and wavenumber of the cylinder are {res_cyl} mkm, {k_0_cyl} 1/mkm')
 
+    res, k_0 = resonance_capillary(R1, R2, n1, n2, n3, m, p, pol = polarization, dispersion = True, plot_eigen_eq=False)
+    res_no_dis, k_0 = resonance_capillary(R1, R2, n1, n2, n3, m, p, pol = polarization, dispersion = False, plot_eigen_eq=False)
+    print(f'Resonance wavelength with dispersion {res*1e3} mkm')
+    print(f'Resonance wavelength without dispersion {res_no_dis*1e3} mkm')

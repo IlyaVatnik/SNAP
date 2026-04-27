@@ -13,9 +13,9 @@ A. Meldrum∗ and F. Marsiglio Department of Physics, University of Alberta, Edm
 import numpy as np
 from scipy import special
 import matplotlib.pyplot as plt
-from Numerical_resonances_wavelengths_capillary_and_cylinder import resonance_cylinder, resonance_capillary
+from Numerical_resonances_wavelengths_capillary_and_cylinder import resonance_capillary, RefInd, SellmeierCoefficientsCalculating
 
-def E_capillary(R1, R2, n1, n2, n3, k_0, m, p, r):
+def E_capillary(R1, R2, n1, n_mat, n3, k_0, m, p, r, pol, dispersion = 'False', sellmeier_coeffs = None):
     
     '''
 
@@ -27,7 +27,7 @@ def E_capillary(R1, R2, n1, n2, n3, k_0, m, p, r):
         outer radius in mkm.
     n1 : float
         refractive index of the internal environment.
-    n2 : float
+    n_mat : float
         refractive index of the capillary tube matherial.
     n3 : float
         refractive index of the external environment.
@@ -55,24 +55,50 @@ def E_capillary(R1, R2, n1, n2, n3, k_0, m, p, r):
     H1_der = lambda a,b: J_der(a,b) + 1j*Y_der(a,b)
     H2 = lambda a,b: J(a,b) - 1j*Y(a,b)
     H2_der = lambda a,b: J_der(a,b) - 1j*Y_der(a,b)
-
-    B = ((n2*J(m, n1*k_0*R1)*H1_der(m, n2*k_0*R1) - n1*J_der(m, n1*k_0*R1)*H1(m, n2*k_0*R1))/
-         (-n2*J(m, n1*k_0*R1)*H2_der(m, n2*k_0*R1) + n1*J_der(m, n1*k_0*R1)*H2(m, n2*k_0*R1)))
-    A = (B*H2(m, n2*k_0*R1) + H1(m, n2*k_0*R1))/J(m, n1*k_0*R1)
-    D = (B*H2(m, n2*k_0*R2) + H1(m, n2*k_0*R2))/H1(m, n3*k_0*R2)
     
+    if dispersion:
+        if not sellmeier_coeffs:
+            sellmeier_coeffs = SellmeierCoefficientsCalculating('SiO2', 20)
+        n2 = RefInd(2*np.pi/k_0*1e3, sellmeier_coeffs)
+    else:
+        n2 = n_mat
+    
+    if pol == 'TE':
+        
+        B = ((n2*J(m, n1*k_0*R1)*H1_der(m, n2*k_0*R1) - n1*J_der(m, n1*k_0*R1)*H1(m, n2*k_0*R1))/
+             (-n2*J(m, n1*k_0*R1)*H2_der(m, n2*k_0*R1) + n1*J_der(m, n1*k_0*R1)*H2(m, n2*k_0*R1)))
+        A = (B*H2(m, n2*k_0*R1) + H1(m, n2*k_0*R1))/J(m, n1*k_0*R1)
+        D = (B*H2(m, n2*k_0*R2) + H1(m, n2*k_0*R2))/H1(m, n3*k_0*R2)
+        
+    elif pol == 'TM':
+        B = ((n1*J(m, n1*k_0*R1)*H1_der(m, n2*k_0*R1) - n2*J_der(m, n1*k_0*R1)*H1(m, n2*k_0*R1))/
+              (-n1*J(m, n1*k_0*R1)*H2_der(m, n2*k_0*R1) + n2*J_der(m, n1*k_0*R1)*H2(m, n2*k_0*R1)))
+        A = ((B*H2_der(m, n2*k_0*R1) + H1_der(m, n2*k_0*R1))/J_der(m, n1*k_0*R1))*(n1/n2)
+        D = ((B*H2_der(m, n2*k_0*R2) + H1_der(m, n2*k_0*R2))/H1_der(m, n3*k_0*R2))*(n3/n2)
+    else:
+        raise ValueError('Wrong polarization type.')
+        
     if any([np.isnan(A), np.isnan(B),np.isnan(D),np.isinf(A),np.isinf(B),np.isinf(D)]):
         # warnings.warn('Error in calculations, capillary is too thick. Instead, the field distribution in the cylinder is used.')
         # Будто тут можно вернуть распределение для цилиндра 
         raise ValueError('Error in calculations, capillary is too thick. Use the field distribution of the cylinder instead.')
     
     def make_E_capillary(A,B,D,k_0, x):
-        if x <= R1:
-            return(A*J(m, n1*k_0*x))
-        elif R1 < x < R2:
-            return(B*H2(m, n2*k_0*x) + H1(m, n2*k_0*x))
+        if pol == 'TE':
+            if x <= R1:
+                return(A*J(m, n1*k_0*x))
+            elif R1 < x < R2:
+                return(B*H2(m, n2*k_0*x) + H1(m, n2*k_0*x))
+            else:
+                return(D*H1(m, n3*k_0*x))
         else:
-            return(D*H1(m, n3*k_0*x))
+            # Equation (22) from A. Meldrum
+            if x <= R1:
+                return((-m/(n1**2*k_0*x))*A*J(m, n1*k_0*x))
+            elif R1 < x < R2:
+                return((-m/(n2**2*k_0*x))*(B*H2(m, n2*k_0*x) + H1(m, n2*k_0*x)))
+            else:
+                return((-m/(n3**2*k_0*x))*D*H1(m, n3*k_0*x))
     E = np.array([make_E_capillary(A,B,D,k_0,i) for i in r])
     return(E)
 
@@ -88,20 +114,23 @@ def E_capillary(R1, R2, n1, n2, n3, k_0, m, p, r):
 
 if __name__ == "__main__":
 
-    R1 = 55
+    R1 = 40
     R2 = 65
     n1 = 1
     n2 = 1.444
     n3 = 1
-    m = 355 #117#122#128#               #135#362#590
-    p = 3
+    m = 355,
     
-    wl, k_0 = resonance_capillary(R1, R2, n1, n2, n3, m, p, pol = 'TE')
+    p = 1
+    pol = 'TE'
+    
+    wl, k_0 = resonance_capillary(R1, R2, n1, n2, n3, m, p, pol, dispersion = False, plot_eigen_eq=False)
+    # print('res = ', 2*np.pi/np.abs(k_0)*1e3)
     Rarray = np.arange(R1-10, R2+10, 1e-3)
-    I = np.abs(E_capillary(R1, R2, n1, n2, n3, k_0, m, p, Rarray)**2)
+    I = np.abs(E_capillary(R1, R2, n1, n2, n3, k_0, m, p, Rarray, pol, dispersion = False)**2)
     
     
-    plt.figure()
+    # plt.figure()
     plt.rc('font', size = 20)
     plt.plot(Rarray, I/np.sum(I), label = f'Microtube p = {p}')
     plt.axvline(R1, c = 'r', linestyle = ':')
@@ -109,3 +138,6 @@ if __name__ == "__main__":
     plt.xlabel('Radius, mkm')
     plt.ylabel('Normalized intensity, arb.un')
     plt.legend()
+    
+    
+

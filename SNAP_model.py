@@ -9,8 +9,8 @@ After papers
 1. Sumetsky, M. Theory of SNAP devices: basic equations and comparison with the experiment. Opt. Express 20, 22537 (2012).
 2. Vitullo, D. L. P., Zaki, S., Jones, D. E., Sumetsky, M. & Brodsky, M. Coupling between waveguides and microresonators: the local approach. Opt. Express 28, 25908 (2020).
 '''
-__version__='2.4'
-__date__='2026.01.12'
+__version__='2.5'
+__date__='2026.01.19'
 
 import numpy as np
 import bottleneck as bn
@@ -38,11 +38,11 @@ class SNAP():
 
     
     def __init__(self,x=None,ERV=None,Wavelengths=None,lambda_0=1550,taper_absS=0.9,taper_phaseS=0,taper_ReD=0.0002,taper_ImD_exc=1e-4,taper_Csquared=1e-2,
-                 res_width=1e-4,R_0=62.5,n=1.45): # Note that x is in microns!
+                 res_width=1e-4,R_0=62.5,refractive_index=1.45): # Note that x is in microns!
         
         self.res_width=res_width    # nm, resonance linewidth corresponding to inner losses of resonator
         self.R_0=R_0                  ## mkm, Fiber radius
-        self.refractive_index=n                 ## Cladding refractive index
+        self.refractive_index=refractive_index                 ## Cladding refractive index
         
         self.lambda_0=lambda_0  # nm, resonance wavelength for the undisturbed cylinder
         self.k0=2*np.pi*self.refractive_index/(self.lambda_0*1e-3) # in 1/mkm
@@ -210,11 +210,33 @@ class SNAP():
         wavelengths=self.lambda_0-eigvals*self.lambda_0/(2*self.k0**2)
         indexes=np.where(wavelengths>self.lambda_0)
         self.mode_wavelengths=wavelengths[indexes]
-        self.mode_distribs=eigvectors[indexes]
+        self.mode_distribs=eigvectors[indexes]/np.max(eigvectors[indexes])
         if plot_at_spectrogram:
             for mode in self.mode_wavelengths:
                 self.fig.axes[0].axhline(mode, color='black')
         return self.mode_wavelengths,self.mode_distribs.T
+    
+    def get_FSR(self,number_of_modes=None):
+        if number_of_modes==None:
+            number_of_modes=len(self.mode_wavelengths)
+        freqs=LIGHT_SPEED/1e3/self.mode_wavelengths[:number_of_modes] # in GHz
+        diff=np.diff(freqs)
+        return diff
+        
+        
+    def get_Dint(self,pump_mode,number_of_modes=None):
+        '''
+        return Dint in GHz
+        '''
+        if number_of_modes==None:
+            number_of_modes=len(self.mode_wavelengths)
+        freqs=LIGHT_SPEED/1e3/self.mode_wavelengths[:number_of_modes] # in GHz
+        diff=np.diff(freqs)
+        FSR=(diff[pump_mode]+diff[pump_mode-1])/2
+        linspace=np.arange(0,number_of_modes)-pump_mode
+        mu_by_FSR=(linspace)*(np.ones(np.shape(freqs)).T*FSR).T
+        Dint=freqs-mu_by_FSR-freqs[pump_mode]
+        return Dint
     
     
     def GreenFunctionXX(self,eigvals,eigvecs,wavelength):
@@ -432,7 +454,7 @@ if __name__=='__main__':
 
     
     N=600
-    lambda_0=1552.21
+    lambda_0=1000
     R_0=100
     
     A=10 ## maximum cariation in nm!!

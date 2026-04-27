@@ -7,7 +7,7 @@ import os
 
 L=200 ## mm
 
-r_out=0.01
+r_out=0.1
 r_in=0.04
 
 distance_propagated=1000
