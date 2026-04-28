@@ -9,8 +9,8 @@ After papers
 1. Sumetsky, M. Theory of SNAP devices: basic equations and comparison with the experiment. Opt. Express 20, 22537 (2012).
 2. Vitullo, D. L. P., Zaki, S., Jones, D. E., Sumetsky, M. & Brodsky, M. Coupling between waveguides and microresonators: the local approach. Opt. Express 28, 25908 (2020).
 '''
-__version__='2.5'
-__date__='2026.01.19'
+__version__='2.6'
+__date__='2026.04.28'
 
 import numpy as np
 import bottleneck as bn
@@ -76,6 +76,10 @@ class SNAP():
         
         self.mode_distribs=None
         self.mode_wavelengths=None
+        self.mode_lengths=None
+        self.eigvals=None
+        self.eigvecs=None
+        self.mode_number=None
         
         self.Cmap='jet'
         
@@ -162,8 +166,14 @@ class SNAP():
         return self.taper_absS*np.exp(1j*self.taper_phaseS*np.pi)
         
         
-    def solve_Shrodinger(self):
+    def solve_Shrodinger(self, normalized_on_integral=False):
+        
                 
+        '''
+        by default, modes are normilazed such that max(Z)=1
+        If normalized_on_integral - normalization over integral
+        
+        '''
         Vmtx=np.diag(self.U)
         Hmtx=self.Tmtx+Vmtx
         
@@ -174,12 +184,16 @@ class SNAP():
         indexes=np.where(eigvals<0)
         eigvals,eigvecs=eigvals[indexes],eigvecs[indexes]
         
-        eigvecs=(eigvecs.T/(np.max(np.abs(eigvecs),axis=1))).T
+        eigvecs=(eigvecs.T/(np.max(np.abs(eigvecs),axis=1))).T 
                 
         # sorted_indexes=np.argsort(np.real(eigvals))
         # eigvals,eigvecs=[eigvals[sorted_indexes],eigvecs.T[sorted_indexes]]
-        eigvecs=eigvecs/np.sqrt(self.dx)  # to get normalization for integral (psi**2 dx) =1
+        if normalized_on_integral:
+            eigvecs=eigvecs/np.sqrt(self.dx)  # to get normalization for integral (psi**2 dx) =1
+        
         return eigvals,eigvecs
+    
+    
 
     def get_delay(self,z1,z2,wavelength):
         ind1=np.argmin(abs(z1-self.x))
@@ -203,18 +217,31 @@ class SNAP():
         mode_wavelengths: np array
             wavelengths in nm 
         mode_distribs
-            Array of mode distribs.
+            Array of mode distribs, normalized such that max(Z)=1
 
         '''
-        eigvals,eigvectors=self.solve_Shrodinger()
-        wavelengths=self.lambda_0-eigvals*self.lambda_0/(2*self.k0**2)
+        try:
+            if any(self.eigvals)==None:
+                self.eigvals,self.eigvecs=self.solve_Shrodinger()
+        except TypeError:
+            self.eigvals,self.eigvecs=self.solve_Shrodinger()
+        wavelengths=self.lambda_0-self.eigvals*self.lambda_0/(2*self.k0**2)
         indexes=np.where(wavelengths>self.lambda_0)
         self.mode_wavelengths=wavelengths[indexes]
-        self.mode_distribs=eigvectors[indexes]/np.max(eigvectors[indexes])
+        self.mode_distribs=self.eigvecs[indexes]/np.max(self.eigvecs[indexes])
+        self.mode_number=len(self.mode_wavelengths)
         if plot_at_spectrogram:
             for mode in self.mode_wavelengths:
                 self.fig.axes[0].axhline(mode, color='black')
         return self.mode_wavelengths,self.mode_distribs.T
+    
+    def calculate_mode_lengths(self):
+        '''
+        Lq = integral (Z**2)dz , mkm
+        '''
+        self.mode_lengths=np.zeros(len(self.mode_wavelengths))
+        for ii,m in enumerate(self.mode_distribs):
+            self.mode_lengths[ii]=np.sum(m**2)*self.dx
     
     def get_FSR(self,number_of_modes=None):
         if number_of_modes==None:
@@ -259,10 +286,11 @@ class SNAP():
         taper_D=self.D()
         taper_S=self.S()
         T=np.zeros((len(self.lambdas),len(self.x)))
-        eigvals,eigvecs=self.solve_Shrodinger()
+        if self.eigvals==None:
+            self.eigvals,self.eigvecs=self.solve_Shrodinger()
         for ii,wavelength in enumerate(self.lambdas):
             if ii%50==0 and show_progress: print('Deriving T for wl={}, {} of {}'.format(wavelength,ii,len(self.lambdas)))
-            G=self.GreenFunctionXX(eigvals,eigvecs,wavelength)
+            G=self.GreenFunctionXX(self.eigvals,self.eigvecs,wavelength)
             ComplexTransmission=(taper_S-1j*self.taper_Csquared*G/(1+taper_D*G))  ## 
             T[ii,:]=abs(ComplexTransmission)**2 
         self.need_to_update_transmission=False

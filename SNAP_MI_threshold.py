@@ -20,6 +20,7 @@ import matplotlib.pyplot as plt
 from scipy.interpolate import interp1d
 from scipy.sparse import diags
 from scipy.sparse.linalg import eigsh
+from numba import njit
 
 from contextlib import contextmanager
 
@@ -330,16 +331,16 @@ class SNAP_nonlinear_system:
         self.V_eff_q0 = self.I_vec * self.L_eff_q0
         
         f = (np.exp(-((self.z - self.Z_taper) / self.CouplingWidth)**2 / 2) / 
-             np.sqrt(2 * np.pi) / self.CouplingWidth)
+             np.sqrt(2 * np.pi) / self.CouplingWidth)/ self.SpaceStep
         
         # calculate coupling and q-factor parameters
         if self.C2==None:
-            self.C2 = self.delta_c *  self.L_eff_q0 / np.sum( self.pump_mode_distrib**2 * f) / self.SpaceStep
-            self.ImD = (self.delta_0+self.delta_c-self.Gamma)  *self.L_eff_q0 / np.sum( self.pump_mode_distrib**2 * f) / self.SpaceStep   # 1. A. Y. Kolesnikova and I. D. Vatnik, "Theory of nonlinear whispering-gallery-mode dynamics in surface nanoscale axial photonics microresonators," Phys. Rev. A 108, 033506 (2023).
+            self.C2 = self.delta_c *  self.L_eff_q0 / np.sum( self.pump_mode_distrib**2 * f) 
+            self.ImD = (self.delta_0+self.delta_c-self.Gamma)  *self.L_eff_q0 / np.sum( self.pump_mode_distrib**2 * f)   # 1. A. Y. Kolesnikova and I. D. Vatnik, "Theory of nonlinear whispering-gallery-mode dynamics in surface nanoscale axial photonics microresonators," Phys. Rev. A 108, 033506 (2023).
             
         elif self.delta_0==None:
-            self.delta_0=(self.ImD-self.C2) / (self.L_eff_q0 / np.sum( self.pump_mode_distrib**2 * f) / self.SpaceStep)+self.Gamma
-            self.delta_c=self.C2 / (self.L_eff_q0 / np.sum( self.pump_mode_distrib**2 * f) / self.SpaceStep)
+            self.delta_0=(self.ImD-self.C2) / (self.L_eff_q0 / np.sum( self.pump_mode_distrib**2 * f) )+self.Gamma
+            self.delta_c=self.C2 / (self.L_eff_q0 / np.sum( self.pump_mode_distrib**2 * f) )
         
             
             
@@ -358,13 +359,13 @@ class SNAP_nonlinear_system:
         P_threshold_nonlinear_effect = ((self.delta_0+self.delta_c)**3 / self.delta_c * EPSILON_0 * 
                                        self.n[0]**2 * self.V_eff_q0 / self.g0 * 2)
         
-        print(f"P_threshold_nonlinear_effect = {P_threshold_nonlinear_effect} W")
+        print(f"P_thr_nonl = {P_threshold_nonlinear_effect} W")
         return P_threshold_nonlinear_effect
 
         
       
         
-    
+    # @njit
     def find_min_positive_threshold(self):
         '''
         Calculate minimum positive threshold power for modulation instability
@@ -376,7 +377,7 @@ class SNAP_nonlinear_system:
               np.sqrt(2 * np.pi) / self.CouplingWidth)
       
         with suppress_warnings():   
-            PP = np.arange(0.01, self.P_max + 0.01, 0.01)
+            PP = np.arange(0.005, self.P_max + 0.01, 0.005)
             
     
             while self.mu_max * 2 + 1 > len(self.omega_spectrum):
@@ -467,7 +468,7 @@ class SNAP_nonlinear_system:
         positive_P_th = P_th[P_th > 0]
         if positive_P_th.size > 0:
             min_P_th = np.min(positive_P_th)
-            print(f"P_threshold_MI = {min_P_th} W")
+            print(f"P_thr_MI = {min_P_th} W")
             return min_P_th,P_threshold_nonlinear_effect
         else:
             print("No positive thresholds found")
