@@ -10,7 +10,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pickle
 
-q0=41
+q0=99
+
+
 file='results.data'
 with open(file,'rb') as f:
     D=pickle.load(f)

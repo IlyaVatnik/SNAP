@@ -6,8 +6,8 @@ Created on Tue Jun 17 12:31:27 2025
 правки - Илья
 """
 
-__date__='2026.01.18'
-__version__='1.4'
+__date__='2026.04.30'
+__version__='2.0'
 
 # -*- coding: utf-8 -*-
 import numpy as np
@@ -43,6 +43,7 @@ EPSILON_0 = 8.85e-18
 class SNAP_nonlinear_system:
     def __init__(self, params,dim_space=2**12):
         """
+        
 
         
         Parameters:
@@ -56,6 +57,8 @@ class SNAP_nonlinear_system:
        
             Z_taper (float): Taper position along z in microns
             q0 (int): Pump axial mode number (counting from 0), нумерация мод по увеличению длины волны, т.е. мода 0 -  с наименьшей длиной волны! 
+            
+            при этом нумерация mode_distribs[:-q0], т.е. обратная!!!
             
             P_in (float): Desired power threshold
             m_val (int): 
@@ -113,6 +116,7 @@ class SNAP_nonlinear_system:
         
         self.omega_spectrum=None
         self.mode_distribs=None
+        self.axial_number_of_modes=None
         
         # Create uniform z grid
         # Interpolate dr to uniform grid
@@ -132,7 +136,7 @@ class SNAP_nonlinear_system:
         ResonantL = c / self.omega * 2 * np.pi
         self.n = self.n_lambda(ResonantL)
         self.beta = self.omega * self.n / c
-        self.lambda_0=2*np.pi/self.beta
+        
         self.coef_disp_mat = (1 + self.dn_omega(self.omega) * self.omega / self.n)
         
         self.I_vec = quad(self.Airy2(1), 0, self.RadiusFiber)[0] * 2 * np.pi / self.NormAiry(1)**2
@@ -187,10 +191,12 @@ class SNAP_nonlinear_system:
             # omega_spectrum_az[i, :len(part_omega_spectrum)] = new_spectrum
             Function_spectrum= np.transpose(np.transpose(Function_spectrum)[index_2])
             Function_spectrum= np.transpose(np.transpose(Function_spectrum)[index_2])
-            self.omega_spectrum, self.mode_distribs = omega_spectrum_all,Function_spectrum/np.max(abs(Function_spectrum),axis=0)
-            
+            self.omega_spectrum  = omega_spectrum_all
+            self.mode_distribs=Function_spectrum/np.max(abs(Function_spectrum),axis=0)
+            self.mode_distribs=self.mode_distribs[:,::-1]
             print('Amount of axial modes is {}'.format(len(self.omega_spectrum)))
-
+            
+            self.axial_number_of_modes=len(self.omega_spectrum)
             return omega_spectrum_all, omega_spectrum_az, Function_spectrum #  Function_spectrum - распределение амплитуд мод . номер столбца - номер аксиальной моды
     # omega_spectrum_az массив частот аксиальных мод, для каждой азимутальной
 
@@ -203,11 +209,11 @@ class SNAP_nonlinear_system:
         '''
         return Dint in GHz
         '''
-        if number_of_modes==None:
-            number_of_modes=len(self.omega_spectrum)
+        if self.axial_number_of_modes==None:
+            self.axial_number_of_modes=len(self.omega_spectrum)
         diff=np.diff(self.omega_spectrum)
         FSR=(diff[pump_mode]+diff[pump_mode-1])/2
-        linspace=np.arange(0,number_of_modes)-pump_mode
+        linspace=np.arange(0,self.axial_number_of_modes)-pump_mode
         mu_by_FSR=(linspace)*(np.ones(np.shape(self.omega_spectrum)).T*FSR).T
         Dint=self.omega_spectrum-mu_by_FSR-self.omega_spectrum[pump_mode]
         return Dint
@@ -376,16 +382,13 @@ class SNAP_nonlinear_system:
         coupling_function = (np.exp(-((self.z - self.Z_taper) / self.CouplingWidth)**2 / 2) / 
               np.sqrt(2 * np.pi) / self.CouplingWidth)
       
-        with suppress_warnings():   
+        with suppress_warnings():  
+            
             PP = np.arange(0.005, self.P_max + 0.01, 0.005)
-            
-    
-            while self.mu_max * 2 + 1 > len(self.omega_spectrum):
-                self.mu_max -= 1
-            
             AA = np.zeros((len(PP), self.mu_max))
             DW = np.zeros((len(PP), self.mu_max))
-            P_th = np.zeros((len(PP), self.mu_max))
+            P_th = np.empty((len(PP), self.mu_max))
+            P_th[:]=np.nan
             
             for m, P in enumerate(PP):
                 ResOmega = self.omega_spectrum
@@ -398,8 +401,11 @@ class SNAP_nonlinear_system:
                        fsr * (range_mode - range_mode[num])) * 2 * np.pi * 1e12
                 
                 for mu in range(1, self.mu_max + 1):
+                    
                     q_plus = self.q0 + mu
                     q_minus = self.q0 - mu
+                    if (q_plus>self.axial_number_of_modes) or (q_minus<0):
+                        continue
                     
                     Z1 = self.mode_distribs[:, q_plus]
                     # Z1 = Z1 / np.max(np.abs(Z1))  # моды уже нормированы на единицу
@@ -465,15 +471,21 @@ class SNAP_nonlinear_system:
                             P_th[m, mu-1] = P
             
         # Find minimum positive threshold
-        positive_P_th = P_th[P_th > 0]
-        if positive_P_th.size > 0:
-            min_P_th = np.min(positive_P_th)
-            print(f"P_thr_MI = {min_P_th} W")
-            return min_P_th,P_threshold_nonlinear_effect
+        
+        positive_P_th = np.where(P_th > 0, P_th, np.nan)
+        if np.any(~np.isnan(positive_P_th)):
+
+            idx = np.unravel_index(np.nanargmin(positive_P_th), positive_P_th.shape)
+            min_P_th=positive_P_th[idx]
+            mu_min_P_th=idx[1]+1
+            print(f"P_thr_MI = {min_P_th} W for sideband={mu_min_P_th}")
+            return min_P_th,mu_min_P_th,P_threshold_nonlinear_effect
+
+            
         else:
             print("No positive thresholds found")
-            return None,P_threshold_nonlinear_effect
-
+            return None,None,P_threshold_nonlinear_effect
+        
 if __name__ == "__main__":
     
     h_width=3000 #mkm

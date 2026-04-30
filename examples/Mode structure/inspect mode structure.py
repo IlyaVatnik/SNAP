@@ -30,7 +30,7 @@ lambda_array=np.arange(wave_min,wave_max,res)
 
 model=SNAP_model.SNAP(z_dr,dr,lambda_array,lambda_0=lambda_0,res_width=1e-4,R_0=R_0)
 model.set_taper_params(absS=np.sqrt(0.8),phaseS=0.0,ReD=0.00,ImD_exc=0e-3,Csquared=0.00001)
-# fig=model.plot_spectrogram(plot_ERV=True,scale='log')
+# fig=model.plot_spectrogram(plot_ERV=False,scale='log')
 model.find_modes()
 print(model.mode_number)
 model.calculate_mode_lengths()
@@ -43,9 +43,10 @@ model.plot_ERV()
 # plt.xlim((1552.46,1552.5))
 # print(SNAP.find_modes())
 # print(SNAP.critical_Csquared())
-m_distrib=model.mode_distribs[30]
+#%%
+m_distrib=model.mode_distribs[1]
 plt.figure()
-plt.plot(z_dr,m_distrib)
+plt.plot(z_dr,m_distrib**2)
 
 
 

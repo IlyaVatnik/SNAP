@@ -11,9 +11,9 @@ import matplotlib.pyplot as plt
 import pickle
 import time
 
-q0_array=np.arange(1,140,1)
+
 Z0_array=np.arange(0,200,2.5)
-thresholds_array=np.ones((len(q0_array),len(Z0_array)))*1
+
 
 h_width=3000 #mkm
 MaxRadVar=0.0100 # mkm
@@ -25,7 +25,7 @@ mask1 = (z_dr > h_width/2) & (z_dr <= h_width/2 + length_of_steepness)
 dr[mask1] = np.linspace(MaxRadVar, 0, np.sum(mask1))
 mask2= (z_dr <- h_width/2) & (z_dr>= -h_width/2 - length_of_steepness)
 dr[mask2] = np.linspace(0, MaxRadVar, np.sum(mask2))
-cone=0.0001
+cone=0.001
 dr+=cone*(z_dr-np.min(z_dr))*1e-3
 dr+=np.random.random(len(z_dr))*0.0005
 
@@ -57,8 +57,9 @@ SNAP.calculate_modes()
 SNAP.calculate_pump_mode_params()
 C2=SNAP.C2
 ImD=SNAP.ImD
-
-
+q0_array=np.arange(1,SNAP.axial_number_of_modes)
+thresholds_array=np.ones((len(q0_array),len(Z0_array)))*np.nan
+mu_array=np.ones((len(q0_array),len(Z0_array)))*np.nan
 #%%
 k=0
 time_tic_1=time.time()
@@ -70,8 +71,9 @@ for ii,q0 in enumerate(q0_array):
         
         SNAP.Z_taper=Z0
         SNAP.delta_0=None
-        min_threshold = SNAP.find_min_positive_threshold()[0]
+        min_threshold,mu,_ = SNAP.find_min_positive_threshold()
         thresholds_array[ii,jj]=min_threshold
+        mu_array[ii,jj]=mu
         k+=1
         time_tic_2=time.time()
         time_elapsed=(time_tic_2-time_tic_1)
@@ -79,8 +81,8 @@ for ii,q0 in enumerate(q0_array):
         print(f'Scanning at q0={q0} Z0={Z0}, step {k} of {N_steps}, time elapsed for step {time_elapsed/k:.1f} s, time remaining={time_remaining//60:.0f} min {np.mod(time_remaining,60):.1f} s')
 
     with open(file,'wb') as f:
-        pickle.dump([params,q0_array,Z0_array,thresholds_array],f)    
+        pickle.dump([params,q0_array,Z0_array,thresholds_array,mu_array],f)    
     
 #%%
 
-SNAP.plot_modes_distribs([-1])
+
