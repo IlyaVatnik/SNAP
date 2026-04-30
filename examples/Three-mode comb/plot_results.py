@@ -10,14 +10,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pickle
 
-q0=99
+q0=45
 
+z0=30
 
 file='results.data'
 with open(file,'rb') as f:
     D=pickle.load(f)
 params,q0_array,Z0_array,thresholds_array=D[0],D[1],D[2],D[3]
 Q0, Z0 = np.meshgrid(q0_array, Z0_array)
+index_z0=np.argmin(abs(Z0_array-z0))
+
 plt.figure(figsize=(10, 6))
 plt.contourf(Q0, Z0, thresholds_array.T, levels=20, cmap='viridis')
 plt.colorbar(label='Threshold, W')
@@ -29,9 +32,10 @@ plt.show()
 
 #%%
 plt.figure(2)
-plt.plot(q0_array, thresholds_array[:,0],'o')
+plt.title(f'for Z0={Z0_array[index_z0]} mkm')
+plt.plot(q0_array, thresholds_array[:,index_z0],'o')
 plt.xlabel('q0')
-plt.ylabel('Threshold for Z0=0, W')
+plt.ylabel('Threshold , W')
 plt.show()
 
 plt.figure(3)

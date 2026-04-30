@@ -7,7 +7,7 @@ Created on Tue Jun 17 12:31:27 2025
 """
 
 __date__='2026.04.30'
-__version__='2.0'
+__version__='2.1'
 
 # -*- coding: utf-8 -*-
 import numpy as np
@@ -469,6 +469,8 @@ class SNAP_nonlinear_system:
                             DW[m, mu-1] = (dW1[j] + dW1[j+1]) / 2
                             AA[m, mu-1] = (A_vals[j] + A_vals[j+1]) / 2
                             P_th[m, mu-1] = P
+                if not np.any(np.isnan(P_th[m,:])):
+                    break
             
         # Find minimum positive threshold
         

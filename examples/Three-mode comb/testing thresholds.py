@@ -54,14 +54,14 @@ plt.plot(SNAP.z,SNAP.mode_distribs[:,0]**2)
 # plt.plot(SNAP_1.x, SNAP_1.mode_distribs[0])
 
 #%%
-R_0=62.5
-lambda_0=1550
-wave_min,wave_max,res=lambda_0-0.01,lambda_0*(1+MaxRadVar/R_0*1.2), 1e-4
+# R_0=62.5
+# lambda_0=1550
+# wave_min,wave_max,res=lambda_0-0.01,lambda_0*(1+MaxRadVar/R_0*1.2), 1e-4
 
-lambda_array=np.arange(wave_min,wave_max,res)
+# lambda_array=np.arange(wave_min,wave_max,res)
 
-SNAP_1=SNAP_model.SNAP(z_dr,dr*1e3,lambda_array,lambda_0=lambda_0,res_width=1e-4,R_0=R_0)
-SNAP_1.set_taper_params(absS=np.sqrt(0.8),phaseS=0.0,ReD=0.00,ImD_exc=0e-3,Csquared=0.00001)
-fig=SNAP_1.plot_spectrogram(plot_ERV=True,scale='log')
-SNAP_1.find_modes(plot_at_spectrogram=False)
+# SNAP_1=SNAP_model.SNAP(z_dr,dr*1e3,lambda_array,lambda_0=lambda_0,res_width=1e-4,R_0=R_0)
+# SNAP_1.set_taper_params(absS=np.sqrt(0.8),phaseS=0.0,ReD=0.00,ImD_exc=0e-3,Csquared=0.00001)
+# fig=SNAP_1.plot_spectrogram(plot_ERV=True,scale='log')
+# SNAP_1.find_modes(plot_at_spectrogram=False)
 #%%

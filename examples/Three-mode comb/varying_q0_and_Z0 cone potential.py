@@ -47,7 +47,7 @@ params = {
 'ImD':25000*1e6 # mkm/s
 }
 
-file='results.data'
+file='results test.data'
 
 plt.figure()
 plt.plot(z_dr,dr)
@@ -57,7 +57,7 @@ SNAP.calculate_modes()
 SNAP.calculate_pump_mode_params()
 C2=SNAP.C2
 ImD=SNAP.ImD
-q0_array=np.arange(1,SNAP.axial_number_of_modes)
+q0_array=np.arange(15,SNAP.axial_number_of_modes)
 thresholds_array=np.ones((len(q0_array),len(Z0_array)))*np.nan
 mu_array=np.ones((len(q0_array),len(Z0_array)))*np.nan
 #%%
